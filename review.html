@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>人工矫正</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="review">
+    <div class="page-shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Human In The Loop</p>
+          <h1>人工矫正</h1>
+          <p class="sidebar-copy">修正主题归类与判定规则，让看板口径更贴近你们的运营判断。</p>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">风险总览</a>
+          <a class="nav-link" href="./reports.html">每日报告</a>
+          <a class="nav-link active" href="./review.html">人工矫正</a>
+        </nav>
+      </aside>
+
+      <main class="content">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Review Console</p>
+            <h2>调整判断规则，让面板更贴近你们的运营口径</h2>
+            <p class="hero-copy">左侧校正单条内容，右侧维护风险关键词与系统主题词表。</p>
+          </div>
+        </header>
+
+        <section class="review-layout">
+          <article class="card">
+            <div class="card-header">
+              <div>
+                <p class="card-label">待复核内容</p>
+                <h3>校正队列</h3>
+              </div>
+              <p id="review-stats" class="section-note"></p>
+            </div>
+            <div id="review-list" class="review-list"></div>
+          </article>
+
+          <div class="side-column">
+            <article class="card">
+              <div class="card-header">
+                <div>
+                  <p class="card-label">规则配置</p>
+                  <h3>关键词词表</h3>
+                </div>
+              </div>
+              <form id="rules-form" class="rules-form">
+                <label>
+                  红色风险关键词
+                  <textarea id="rules-red" rows="3" placeholder="quit, delete, refund"></textarea>
+                </label>
+                <label>
+                  橙色风险关键词
+                  <textarea id="rules-orange" rows="3" placeholder="nerf, lag, toxic"></textarea>
+                </label>
+                <label>
+                  绿色参考关键词
+                  <textarea id="rules-green" rows="3" placeholder="guide, help, best"></textarea>
+                </label>
+                <label>
+                  负向情绪触发词
+                  <textarea id="rules-negative" rows="3" placeholder="!!!, FUCK, SICK"></textarea>
+                </label>
+                <label>
+                  正向情绪关键词
+                  <textarea id="rules-positive" rows="3" placeholder="love, thanks, awesome"></textarea>
+                </label>
+                <button class="button button-primary" type="submit">保存规则</button>
+              </form>
+            </article>
+
+            <article class="card">
+              <div class="card-header">
+                <div>
+                  <p class="card-label">主题配置</p>
+                  <h3>系统主题词表</h3>
+                </div>
+              </div>
+              <form id="taxonomy-form" class="rules-form"></form>
+            </article>
+
+            <article class="card">
+              <div class="card-header">
+                <div>
+                  <p class="card-label">本地修正记录</p>
+                  <h3>最近校正</h3>
+                </div>
+              </div>
+              <div id="review-history" class="stack-list"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./ui-config.js"></script>
+    <script src="./shared.js"></script>
+    <script src="./review.js"></script>
+  </body>
+</html>

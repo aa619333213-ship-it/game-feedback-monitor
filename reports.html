@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>每日报告</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="reports">
+    <div class="page-shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Morning Sync</p>
+          <h1>每日报告</h1>
+          <p class="sidebar-copy">把今天的 Reddit 玩家反馈整理成适合晨会、同步和汇报使用的日报。</p>
+        </div>
+        <nav class="nav">
+          <a class="nav-link" href="./index.html">风险总览</a>
+          <a class="nav-link active" href="./reports.html">每日报告</a>
+          <a class="nav-link" href="./review.html">人工矫正</a>
+        </nav>
+      </aside>
+
+      <main class="content report-page">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Daily Brief</p>
+            <h2 id="report-title">Rise of Kingdoms 每日风险简报</h2>
+            <p id="report-subtitle" class="hero-copy"></p>
+          </div>
+        </header>
+
+        <section class="report-grid">
+          <article class="card">
+            <p class="card-label">管理层一句话</p>
+            <h3 id="executive-summary"></h3>
+            <p id="executive-detail" class="summary-text"></p>
+          </article>
+
+          <article class="card">
+            <p class="card-label">关键指标</p>
+            <div id="report-metrics" class="metric-row"></div>
+          </article>
+        </section>
+
+        <section class="report-sections">
+          <article class="card">
+            <p class="card-label">Top 风险系统</p>
+            <div id="report-topics" class="issue-list"></div>
+          </article>
+
+          <article class="card">
+            <p class="card-label">今日建议动作</p>
+            <div id="recommended-actions" class="stack-list"></div>
+          </article>
+
+          <article class="card">
+            <p class="card-label">代表性帖子</p>
+            <div id="featured-posts" class="post-stream"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="./ui-config.js"></script>
+    <script src="./shared.js"></script>
+    <script src="./reports.js"></script>
+  </body>
+</html>

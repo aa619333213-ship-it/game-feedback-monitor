@@ -1,0 +1,15 @@
+{
+  "game": {
+    "name": "Rise of Kingdoms",
+    "key": "rise-of-kingdoms"
+  },
+  "subreddits": [
+    "RiseofKingdoms"
+  ],
+  "syncIntervalMinutes": 30,
+  "lookbackDays": 3,
+  "limits": {
+    "postsPerSubreddit": 100,
+    "commentsPerPost": 4
+  }
+}

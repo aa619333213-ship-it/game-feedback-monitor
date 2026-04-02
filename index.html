@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>海外玩家反馈监控台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&family=Material+Symbols+Outlined:wght@100..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="dashboard" class="radar-dashboard">
+    <div class="radar-shell">
+      <aside class="radar-sidebar">
+        <div class="radar-sidebar-top">
+          <div class="radar-brand">
+            <div class="radar-brand-icon">
+              <span class="material-symbols-outlined">radar</span>
+            </div>
+            <div class="radar-brand-copy">
+              <strong>海外运营雷达</strong>
+            </div>
+          </div>
+
+          <section class="radar-monitor">
+            <p class="radar-section-label">监控对象</p>
+            <div class="radar-monitor-card">
+              <strong id="game-name">Rise of Kingdoms</strong>
+              <p id="source-summary">r/RiseofKingdoms</p>
+            </div>
+          </section>
+
+          <nav class="radar-nav">
+            <a class="radar-nav-link active" href="./index.html">
+              <span class="material-symbols-outlined">dashboard</span>
+              <span>风险总览</span>
+            </a>
+            <a class="radar-nav-link" href="./reports.html">
+              <span class="material-symbols-outlined">description</span>
+              <span>每日报告</span>
+            </a>
+            <a class="radar-nav-link" href="./review.html">
+              <span class="material-symbols-outlined">verified_user</span>
+              <span>人工矫正</span>
+            </a>
+          </nav>
+        </div>
+
+        <div class="radar-sidebar-bottom">
+          <a class="radar-settings-link" href="./review.html">
+            <span class="material-symbols-outlined">settings</span>
+            <span>系统设置</span>
+          </a>
+        </div>
+      </aside>
+
+      <main class="radar-main">
+        <header class="radar-topbar">
+          <div class="radar-topbar-title">
+            <h1>海外玩家舆情雷达</h1>
+            <span class="radar-live-pill">LIVE</span>
+          </div>
+          <div class="radar-topbar-actions">
+            <button id="refresh-button" class="radar-btn radar-btn-primary">
+              <span class="material-symbols-outlined">refresh</span>
+              <span>刷新实时数据</span>
+            </button>
+            <button id="test-alert-button" class="radar-btn radar-btn-secondary">
+              <span class="material-symbols-outlined">notification_important</span>
+              <span>测试告警</span>
+            </button>
+          </div>
+        </header>
+
+        <div class="radar-content">
+          <section class="radar-stats-grid">
+            <article class="radar-stat-card">
+              <p>风险评分</p>
+              <div class="radar-stat-main">
+                <strong id="stat-risk-score">0</strong>
+                <span id="stat-risk-copy" class="radar-stat-positive">稳定</span>
+              </div>
+            </article>
+            <article class="radar-stat-card">
+              <p>环比变化</p>
+              <div class="radar-stat-main">
+                <strong id="stat-change-score">0%</strong>
+                <span id="stat-change-icon" class="material-symbols-outlined radar-stat-positive">trending_up</span>
+              </div>
+            </article>
+            <article class="radar-stat-card">
+              <p>总贴数</p>
+              <div class="radar-stat-main">
+                <strong id="stat-post-count">0</strong>
+                <span class="radar-stat-subtle">过去72h</span>
+              </div>
+            </article>
+            <article class="radar-stat-card radar-stat-alert">
+              <p>待跟进</p>
+              <div class="radar-stat-main">
+                <strong id="stat-alert-count">0</strong>
+                <span id="stat-alert-copy" class="radar-stat-danger">需处理</span>
+              </div>
+            </article>
+          </section>
+
+          <section class="radar-hero-grid">
+            <article id="risk-card" class="radar-panel radar-gauge-panel">
+              <div class="radar-panel-head">
+                <div>
+                  <h2 id="risk-panel-title">风险气象（评分: 0 - 晴）</h2>
+                  <p class="radar-panel-subtitle">过去 72 小时实时风险趋势监控</p>
+                </div>
+                <div class="radar-score-summary">
+                  <strong id="risk-score">0</strong>
+                  <p id="risk-change">+0 趋势回稳</p>
+                </div>
+              </div>
+              <div id="risk-weather" class="risk-weather" aria-hidden="true"></div>
+              <div class="radar-gauge-stage">
+                <div class="risk-meter risk-gauge">
+                  <div class="risk-gauge-arc">
+                    <div class="risk-gauge-track"></div>
+                    <div class="risk-gauge-inner"></div>
+                    <div id="risk-needle" class="risk-needle"></div>
+                    <div class="risk-gauge-center"></div>
+                  </div>
+                  <div class="risk-scale">
+                    <span>0 雨天</span>
+                    <span>60 阴天</span>
+                    <span>80 晴</span>
+                    <span>100</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <aside class="radar-panel radar-summary-panel">
+              <div class="radar-summary-header">
+                <span class="material-symbols-outlined">info</span>
+                <h3>今日概况</h3>
+              </div>
+              <p id="headline-summary" class="radar-summary-copy"></p>
+
+              <div class="radar-summary-box">
+                <div class="radar-summary-box-head">
+                  <strong>告警概览</strong>
+                  <span>实时分布</span>
+                </div>
+                <div id="alert-summary" class="radar-alert-bars"></div>
+              </div>
+            </aside>
+          </section>
+
+          <section class="radar-rank-section">
+            <div class="radar-rank-header">
+              <h3>
+                <span class="material-symbols-outlined">trending_down</span>
+                <span>核心负面反馈榜单</span>
+              </h3>
+              <a class="radar-export-link" href="./reports.html">导出详情报告</a>
+            </div>
+            <div id="issue-list" class="radar-issue-grid"></div>
+          </section>
+
+          <section class="radar-stream-section">
+            <div class="radar-stream-header">
+              <div>
+                <p class="radar-section-label">玩家帖子与评论</p>
+                <h3>明细流</h3>
+              </div>
+            </div>
+            <div class="filters radar-filters">
+              <label>
+                类型
+                <select id="content-type-filter">
+                  <option value="all">全部</option>
+                  <option value="submission">帖子</option>
+                  <option value="comment">评论</option>
+                </select>
+              </label>
+              <label>
+                系统
+                <select id="topic-filter"></select>
+              </label>
+              <label>
+                情绪
+                <select id="sentiment-filter">
+                  <option value="all">全部</option>
+                  <option value="negative">负向</option>
+                  <option value="neutral">中性</option>
+                  <option value="positive">正向</option>
+                </select>
+              </label>
+              <label>
+                风险
+                <select id="risk-filter">
+                  <option value="all">全部</option>
+                  <option value="red">红色</option>
+                  <option value="orange">橙色</option>
+                  <option value="green">绿色</option>
+                </select>
+              </label>
+              <label>
+                排序
+                <select id="sort-filter">
+                  <option value="time">时间</option>
+                  <option value="heat">热度</option>
+                </select>
+              </label>
+            </div>
+            <div id="post-stream" class="post-stream radar-post-stream"></div>
+            <div id="post-pagination" class="pagination"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="./ui-config.js"></script>
+    <script src="./shared.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

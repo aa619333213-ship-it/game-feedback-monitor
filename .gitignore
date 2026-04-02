@@ -1,0 +1,9 @@
+data/store.json
+data/*.bak
+server.runtime.log
+server.out.log
+server.err.log
+*.log
+*.pyc
+__pycache__/
+node_modules/

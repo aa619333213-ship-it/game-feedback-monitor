@@ -187,7 +187,7 @@ function Protect-StoreSize {
 function Get-LiveAnalysisItems {
   param($Store)
   $items = foreach ($raw in $Store.raw_posts) {
-    $topicMatch = Get-TopicMatch -Text $raw.combined_text
+    $topicMatch = Get-TopicMatch -Text (Get-DirectTopicText -RawPost $raw)
     $topic = if ($topicMatch) { $topicMatch.key } else { "other" }
     $sentiment = Get-Sentiment -Text $raw.combined_text
     $riskLevel = Get-ContentRiskLevel -Text $raw.combined_text
@@ -290,6 +290,20 @@ function Get-Topic {
   return "other"
 }
 
+function Get-DirectTopicText {
+  param($RawPost)
+
+  if (-not $RawPost) {
+    return ""
+  }
+
+  if ($RawPost.post_type -eq "comment") {
+    return Sanitize-Text ([string]$RawPost.body)
+  }
+
+  return Sanitize-Text ("$($RawPost.title) $($RawPost.body)")
+}
+
 function Get-TopicMatch {
   param([string]$Text)
   $lower = $Text.ToLowerInvariant()
@@ -301,6 +315,16 @@ function Get-TopicMatch {
       }
       $normalizedAlias = $normalizedAlias.ToLowerInvariant()
       if ($normalizedAlias -eq "op") {
+        continue
+      }
+      if ($topic.key -eq "bug" -and $normalizedAlias -eq "issue") {
+        $issuePattern = '((?<![a-z0-9])(issue|issues)(?![a-z0-9])\s+(with|when|after|on|in|causing|caused|stops?|stopped|fails?|failed|won''t|cant|can''t|cannot|bugged))|((login|server|march|forge|weapon|screen|quest|peacekeeping|client|ui|account)\s+(issue|issues))'
+        if ($lower -match $issuePattern) {
+          return [pscustomobject]@{
+            key = $topic.key
+            alias = $normalizedAlias
+          }
+        }
         continue
       }
       $pattern = "(?<![a-z0-9])" + [regex]::Escape($normalizedAlias) + "(?![a-z0-9])"
@@ -637,7 +661,7 @@ function Sync-FeedbackStore {
 
   $analysisList = [System.Collections.Generic.List[object]]::new()
   foreach ($item in $store.raw_posts) {
-    $topicMatch = Get-TopicMatch -Text $item.combined_text
+    $topicMatch = Get-TopicMatch -Text (Get-DirectTopicText -RawPost $item)
     $topic = if ($topicMatch) { $topicMatch.key } else { "other" }
     $sentiment = Get-Sentiment -Text $item.combined_text
     $impact = [Math]::Min(1, (($item.score + ($item.comments_count * 2)) / 500.0))

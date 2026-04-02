@@ -12,6 +12,10 @@
     sort: "time",
     page: 1,
     pageSize: 10,
+    currentIssues: [],
+    expandedIssueQuotes: {},
+    expandedIssueRelated: {},
+    issueRelatedCache: {},
   };
 
   const els = {
@@ -59,6 +63,7 @@
     els.riskFilter.addEventListener("change", onFilterChange("risk"));
     els.contentTypeFilter.addEventListener("change", onFilterChange("contentType"));
     els.sortFilter.addEventListener("change", onFilterChange("sort"));
+    els.issueList.addEventListener("click", onIssueListClick);
 
     els.refreshButton.addEventListener("click", async () => {
       els.refreshButton.disabled = true;
@@ -86,6 +91,61 @@
         window.alert(`测试告警失败：${error.message}`);
       }
     });
+  }
+
+  async function onIssueListClick(event) {
+    const actionButton = event.target.closest("[data-issue-action]");
+    if (!actionButton) {
+      return;
+    }
+
+    const action = actionButton.dataset.issueAction;
+    const topicKey = actionButton.dataset.topicKey;
+    if (!topicKey) {
+      return;
+    }
+
+    if (action === "toggle-quote") {
+      state.expandedIssueQuotes[topicKey] = !state.expandedIssueQuotes[topicKey];
+      renderIssues(state.currentIssues);
+      return;
+    }
+
+    if (action === "toggle-related") {
+      if (state.expandedIssueRelated[topicKey]) {
+        state.expandedIssueRelated[topicKey] = false;
+        renderIssues(state.currentIssues);
+        return;
+      }
+
+      if (!state.issueRelatedCache[topicKey]) {
+        actionButton.disabled = true;
+        actionButton.textContent = "正在加载...";
+        try {
+          const issue = state.currentIssues.find((item) => item.key === topicKey);
+          const size = Math.min(50, Math.max(10, (issue && issue.occurrenceCount) || 10));
+          const query = new URLSearchParams({
+            topic: topicKey,
+            sentiment: "all",
+            risk: "all",
+            contentType: "all",
+            sort: "heat",
+            page: "1",
+            pageSize: String(size),
+          });
+          const response = await App.fetchApi(`/api/posts?${query.toString()}`);
+          state.issueRelatedCache[topicKey] = response && Array.isArray(response.items) ? response.items : [];
+        } catch (error) {
+          window.alert(`加载同主题帖子失败：${error.message}`);
+          actionButton.disabled = false;
+          actionButton.textContent = "查看其他帖子";
+          return;
+        }
+      }
+
+      state.expandedIssueRelated[topicKey] = true;
+      renderIssues(state.currentIssues);
+    }
   }
 
   function onFilterChange(key) {
@@ -200,6 +260,7 @@
   }
 
   function renderIssues(issues) {
+    state.currentIssues = Array.isArray(issues) ? issues : [];
     const topIssues = (issues || []).slice(0, 4);
     els.issueList.innerHTML = topIssues.length
       ? topIssues.map((item, index) => renderIssueCard(item, index)).join("")
@@ -210,13 +271,24 @@
     const priorityText = issuePriority(item, index);
     const accentClass = item.riskLevel === "red" ? "red" : item.riskLevel === "orange" ? "orange" : index === 3 ? "purple" : "blue";
     const change = Math.round((item.growth || 0) * 100);
-    const quote = representativeQuote(item.representativePost);
+    const quoteExpanded = !!state.expandedIssueQuotes[item.key];
+    const quote = representativeQuote(item.representativePost, quoteExpanded);
     const tags = buildTags(item);
     const actionLabel = translateCopy(item.actionSuggestion || "");
     const postUrl = representativePostUrl(item.representativePost);
     const postLink = postUrl
       ? `<a class="radar-source-link" href="${postUrl}" target="_blank" rel="noreferrer">查看原帖</a>`
       : "";
+    const issueCount = item.occurrenceCount || 0;
+    const remainingCount = Math.max(0, issueCount - 1);
+    const relatedExpanded = !!state.expandedIssueRelated[item.key];
+    const quoteToggle = item.representativePost && representativeText(item.representativePost).length > 72
+      ? `<button class="radar-inline-btn" type="button" data-issue-action="toggle-quote" data-topic-key="${item.key}">${quoteExpanded ? "收起全文" : "查看全文"}</button>`
+      : "";
+    const relatedToggle = remainingCount > 0
+      ? `<button class="radar-inline-btn" type="button" data-issue-action="toggle-related" data-topic-key="${item.key}">${relatedExpanded ? "收起其他帖子" : `查看其余 ${remainingCount} 条`}</button>`
+      : "";
+    const relatedSection = relatedExpanded ? renderRelatedIssuePosts(item) : "";
 
     return `
       <article class="radar-issue-card ${accentClass}">
@@ -242,7 +314,12 @@
           <span class="material-symbols-outlined">chat_bubble</span>
           <p>${quote}</p>
         </div>
+        <div class="radar-inline-actions">
+          ${quoteToggle}
+          ${relatedToggle}
+        </div>
         ${postLink}
+        ${relatedSection}
         <div class="radar-tag-row">${tags}</div>
         <button class="radar-action-btn ${accentClass}" type="button">${actionLabel}</button>
       </article>
@@ -255,13 +332,47 @@
     return "P2 持续观察";
   }
 
-  function representativeQuote(post) {
+  function representativeText(post) {
+    return String(post && (post.body || post.title) || "").replace(/\s+/g, " ").trim();
+  }
+
+  function representativeQuote(post, expanded = false) {
     if (!post) {
       return "“当前没有代表性玩家反馈。”";
     }
-    const text = String(post.body || post.title || "").replace(/\s+/g, " ").trim();
-    const excerpt = text.length > 72 ? `${text.slice(0, 72)}...` : text;
+    const text = representativeText(post);
+    const excerpt = !expanded && text.length > 72 ? `${text.slice(0, 72)}...` : text;
     return `“${excerpt || "当前没有代表性玩家反馈。"}”`;
+  }
+
+  function renderRelatedIssuePosts(item) {
+    const relatedPosts = (state.issueRelatedCache[item.key] || []).filter((post) => post.id !== (item.representativePost && item.representativePost.external_id));
+    if (!relatedPosts.length) {
+      return `<div class="radar-related-list empty">当前没有更多同主题帖子。</div>`;
+    }
+
+    const rows = relatedPosts.map((post) => {
+      const body = String(post.body || post.title || "").replace(/\s+/g, " ").trim();
+      const excerpt = body.length > 120 ? `${body.slice(0, 120)}...` : body;
+      return `
+        <article class="radar-related-item">
+          <div class="radar-related-head">
+            <strong>${post.postType === "submission" ? "帖子" : "评论"}</strong>
+            <span>${post.score || 0} 赞 / ${post.commentsCount || 0} 评论</span>
+          </div>
+          <h5>${post.originalTitle || post.title || "未命名帖子"}</h5>
+          <p>${excerpt || "当前没有可显示的正文。"} </p>
+          <a href="${post.url}" target="_blank" rel="noreferrer">打开这条内容</a>
+        </article>
+      `;
+    }).join("");
+
+    return `
+      <section class="radar-related-list">
+        <div class="radar-related-title">同主题其余 ${relatedPosts.length} 条</div>
+        <div class="radar-related-grid">${rows}</div>
+      </section>
+    `;
   }
 
   function representativePostUrl(post) {

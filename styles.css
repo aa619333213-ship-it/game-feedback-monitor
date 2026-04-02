@@ -1422,6 +1422,94 @@ input[type="checkbox"] {
   line-height: 1.7;
 }
 
+.radar-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.radar-inline-btn {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.06);
+  color: #2563eb;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.radar-inline-btn:hover {
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.radar-inline-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.radar-related-list {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+}
+
+.radar-related-list.empty {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.radar-related-title {
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.radar-related-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.radar-related-item {
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+}
+
+.radar-related-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.radar-related-item h5 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.radar-related-item p {
+  margin: 0 0 10px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.radar-related-item a {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .radar-tag-row {
   display: flex;
   flex-wrap: wrap;

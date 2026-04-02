@@ -44,8 +44,9 @@ http://127.0.0.1:8899/
 ## Vercel deployment
 
 - `api/_lib/persistent-store.js`: persistence layer for local file storage and Vercel Blob storage
-- `vercel.json`: runtime config plus the 30-minute sync cron
-- `api/cron/sync.js`: scheduled sync endpoint for production
+- `vercel.json`: runtime config for Vercel Functions
+- `.github/workflows/sync-monitor.yml`: 30-minute scheduled sync via GitHub Actions
+- `api/cron/sync.js`: optional protected sync endpoint if you later move scheduling back to Vercel Pro
 
 To make Vercel persist real data instead of seed data, add:
 

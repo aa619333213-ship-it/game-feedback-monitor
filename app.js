@@ -178,12 +178,14 @@
     const rows = topIssues.map((item) => {
       const width = Math.max(12, Math.round(((item.heat || 0) / totalHeat) * 100));
       const levelClass = item.riskLevel === "red" ? "red" : item.riskLevel === "orange" ? "orange" : "blue";
+      const issueCount = (item.occurrenceCount || item.negativeCount || 0);
       return `
         <div class="radar-alert-row">
           <div class="radar-alert-track">
             <div class="radar-alert-fill ${levelClass}" style="width:${width}%"></div>
           </div>
           <span class="radar-alert-label">${topicLabel(item.key || item.label)}</span>
+          <span class="radar-alert-count">${issueCount} 条</span>
           <strong>${width}%</strong>
         </div>
       `;

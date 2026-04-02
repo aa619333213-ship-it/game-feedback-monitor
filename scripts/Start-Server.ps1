@@ -300,6 +300,9 @@ function Get-TopicMatch {
         continue
       }
       $normalizedAlias = $normalizedAlias.ToLowerInvariant()
+      if ($normalizedAlias -eq "op") {
+        continue
+      }
       $pattern = "(?<![a-z0-9])" + [regex]::Escape($normalizedAlias) + "(?![a-z0-9])"
       if ($lower -match $pattern) {
         return [pscustomobject]@{
@@ -344,6 +347,63 @@ function Get-RiskDisplayCopy {
     "orange" { return "Close Observation Needed" }
     default { return "Routine Feedback Collection" }
   }
+}
+
+function Get-RepresentativeRawForTopic {
+  param(
+    [object[]]$AnalysisItems,
+    [object[]]$RawPosts
+  )
+
+  $candidates = foreach ($analysis in @($AnalysisItems | Where-Object { -not $_.ignored })) {
+    $raw = $RawPosts | Where-Object { $_.external_id -eq $analysis.external_id } | Select-Object -First 1
+    if (-not $raw) {
+      continue
+    }
+
+    $alias = [string]$analysis.topic_match_alias
+    $title = [string]$raw.title
+    $body = [string]$raw.body
+    $titleHasAlias = 0
+    $bodyHasAlias = 0
+    if (-not [string]::IsNullOrWhiteSpace($alias)) {
+      $pattern = "(?<![a-z0-9])" + [regex]::Escape($alias.ToLowerInvariant()) + "(?![a-z0-9])"
+      if ($title.ToLowerInvariant() -match $pattern) { $titleHasAlias = 1 }
+      if ($body.ToLowerInvariant() -match $pattern) { $bodyHasAlias = 1 }
+    }
+
+    [pscustomobject]@{
+      raw = $raw
+      isSubmission = if ($raw.post_type -eq "submission") { 1 } else { 0 }
+      titleHasAlias = $titleHasAlias
+      bodyHasAlias = $bodyHasAlias
+      hasAlias = if ([string]::IsNullOrWhiteSpace($alias)) { 0 } else { 1 }
+      riskPriority = Get-RiskPriority -RiskLevel $analysis.risk_level
+      impact = [double]$analysis.impact
+      commentsCount = [int]$raw.comments_count
+      score = [int]$raw.score
+      createdAt = try { [datetime]$raw.created_at_source } catch { Get-Date "2000-01-01" }
+    }
+  }
+
+  $winner = $candidates |
+    Sort-Object `
+      @{Expression="titleHasAlias";Descending=$true}, `
+      @{Expression="isSubmission";Descending=$true}, `
+      @{Expression="bodyHasAlias";Descending=$true}, `
+      @{Expression="hasAlias";Descending=$true}, `
+      @{Expression="riskPriority";Descending=$true}, `
+      @{Expression="impact";Descending=$true}, `
+      @{Expression="commentsCount";Descending=$true}, `
+      @{Expression="score";Descending=$true}, `
+      @{Expression="createdAt";Descending=$true} |
+    Select-Object -First 1
+
+  if ($winner) {
+    return $winner.raw
+  }
+
+  return $null
 }
 
 function Get-RiskIntensity {
@@ -731,19 +791,11 @@ function Get-StoreDataset {
     }
     $riskScore = Get-RiskScoreFromLevel -RiskLevel $riskLevel
     $trend = @($previous | ForEach-Object { [int]$_.risk_score }) + @($riskScore)
-    $representativeAnalysis = $analysis |
-      Sort-Object `
-        @{Expression={Get-RiskPriority -RiskLevel $_.risk_level};Descending=$true}, `
-        @{Expression="impact";Descending=$true} |
-      Select-Object -First 1
-    $representativePost = if ($representativeAnalysis) {
-      $store.raw_posts | Where-Object { $_.external_id -eq $representativeAnalysis.external_id } | Select-Object -First 1
-    } else {
-      $null
-    }
+    $representativePost = Get-RepresentativeRawForTopic -AnalysisItems $analysis -RawPosts $store.raw_posts
     [pscustomobject]@{
       key = $topic.key
       label = $topic.label
+      occurrenceCount = $analysis.Count
       negativeCount = $negativeItems.Count
       negativeShare = [Math]::Round(($negativeItems.Count / [double]$analysis.Count), 2)
       heat = $heat

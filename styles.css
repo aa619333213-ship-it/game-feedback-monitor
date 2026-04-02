@@ -1191,7 +1191,7 @@ input[type="checkbox"] {
 
 .radar-alert-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: 10px;
 }
@@ -1224,6 +1224,13 @@ input[type="checkbox"] {
   min-width: 50px;
   font-size: 12px;
   font-weight: 700;
+}
+
+.radar-alert-count {
+  min-width: 42px;
+  color: #6b7280;
+  font-size: 12px;
+  text-align: right;
 }
 
 .radar-alert-row strong {

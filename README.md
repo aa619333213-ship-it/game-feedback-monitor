@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Start-Server.ps1
 Then open:
 
 ```text
-http://127.0.0.1:8787/
+http://127.0.0.1:8989/
 ```
 
 ## Live data flow

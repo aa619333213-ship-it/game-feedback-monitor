@@ -65,6 +65,27 @@ textarea {
   min-height: 100vh;
 }
 
+.crafted-tag-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 4px 0;
+}
+
+.crafted-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(43, 78, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(30, 41, 59, 0.06);
+  color: #6d7d93;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
 .sidebar {
   position: relative;
   padding: 32px 24px;

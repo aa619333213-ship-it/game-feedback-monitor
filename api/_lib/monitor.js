@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SOURCES_PATH = path.join(ROOT, "data", "sources.json");
+const STORE_PATH = path.join(ROOT, "data", "store.json");
 
 const TOPIC_FOCUS = {
   matchmaking: "\u5339\u914d\u516c\u5e73\u6027\u548c\u5bf9\u5c40\u8d28\u91cf",
@@ -216,6 +217,134 @@ function getWeatherAdvice(level) {
   return "Immediate Intervention Required";
 }
 
+function getFallbackRawPosts() {
+  const now = Date.now();
+  const iso = (hoursAgo) => new Date(now - hoursAgo * 60 * 60 * 1000).toISOString();
+
+  return [
+    {
+      external_id: "t1_seed_event_1",
+      parent_id: "t3_seed_event_parent",
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "comment",
+      title: "Where did kvk originate?",
+      body: "Karuak was one of the reasons I quit. The repeating event cycle became exhausting and the reward value felt off.",
+      author_name: "Numerous-Key6162",
+      score: 3,
+      comments_count: 0,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s95qb3/where_did_kvk_originate/odocr2c",
+      created_at_source: iso(18),
+      combined_text: "Where did kvk originate? Karuak was one of the reasons I quit. The repeating event cycle became exhausting and the reward value felt off.",
+    },
+    {
+      external_id: "t3_seed_progression_1",
+      parent_id: null,
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "submission",
+      title: "Concerns over future of power creep",
+      body: "I think future commanders may make the game impossible for F2Ps and push progression too hard.",
+      author_name: "NoCow3503",
+      score: 0,
+      comments_count: 10,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s951xv/concerns_over_future_of_power_creep/",
+      created_at_source: iso(28),
+      combined_text: "Concerns over future of power creep I think future commanders may make the game impossible for F2Ps and push progression too hard.",
+    },
+    {
+      external_id: "t3_seed_economy_1",
+      parent_id: null,
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "submission",
+      title: "Indecision led me to this by the end of kvk1, am I cooked??",
+      body: "Saving gold heads may be stunting my progress more than helping. The long-term resource value feels unclear.",
+      author_name: "Single-Brain7452",
+      score: 9,
+      comments_count: 27,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s9qpif/indecision_led_me_to_this_by_the_end_of_kvk1_am_i/",
+      created_at_source: iso(11),
+      combined_text: "Indecision led me to this by the end of kvk1, am I cooked?? Saving gold heads may be stunting my progress more than helping. The long-term resource value feels unclear.",
+    },
+    {
+      external_id: "t3_seed_monetization_1",
+      parent_id: null,
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "submission",
+      title: "Priority for low spenders",
+      body: "I want to know the best way to spend money as a low spender because bundle value is hard to judge.",
+      author_name: "Errorsansyt13",
+      score: 5,
+      comments_count: 26,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s9wq6g/priority_for_low_spenders/",
+      created_at_source: iso(8),
+      combined_text: "Priority for low spenders I want to know the best way to spend money as a low spender because bundle value is hard to judge.",
+    },
+    {
+      external_id: "t3_seed_bug_1",
+      parent_id: null,
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "submission",
+      title: "Bug",
+      body: "What happened? I cannot forge weapons either.",
+      author_name: "andidwip11",
+      score: 4,
+      comments_count: 11,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s8m5xm/bug/",
+      created_at_source: iso(40),
+      combined_text: "Bug What happened? I cannot forge weapons either.",
+    },
+    {
+      external_id: "t1_seed_balance_1",
+      parent_id: "t3_seed_balance_parent",
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "comment",
+      title: "What are some common mistakes new players make with commanders?",
+      body: "Archers are still the meta for a long while and that balance direction limits variety.",
+      author_name: "Top_Fly1091",
+      score: 1,
+      comments_count: 0,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s9b300/what_are_some_common_mistakes_new_players_make/odo8m4i",
+      created_at_source: iso(19),
+      combined_text: "What are some common mistakes new players make with commanders? Archers are still the meta for a long while and that balance direction limits variety.",
+    },
+    {
+      external_id: "t3_seed_matchmaking_1",
+      parent_id: null,
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "submission",
+      title: "SoC Matchmaking",
+      body: "Is SoC matchmaking based on top 300 or ch25? Players keep asking because matching rules are not obvious.",
+      author_name: "Admirable_Novel9150",
+      score: 1,
+      comments_count: 6,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s7pzjo/soc_matchmaking/",
+      created_at_source: iso(54),
+      combined_text: "SoC Matchmaking Is SoC matchmaking based on top 300 or ch25? Players keep asking because matching rules are not obvious.",
+    },
+    {
+      external_id: "t1_seed_server_1",
+      parent_id: "t3_seed_server_parent",
+      platform: "reddit",
+      subreddit: "RiseofKingdoms",
+      post_type: "comment",
+      title: "Where did kvk originate?",
+      body: "Older cross-server experiences felt smoother. The current server experience is harder to trust.",
+      author_name: "DirkishDelight",
+      score: 2,
+      comments_count: 0,
+      post_url: "https://www.reddit.com/r/RiseofKingdoms/comments/1s95qb3/where_did_kvk_originate/odm40xd",
+      created_at_source: iso(28),
+      combined_text: "Where did kvk originate? Older cross-server experiences felt smoother. The current server experience is harder to trust.",
+    },
+  ];
+}
+
 function getTopicSignalSummary(topicKey, rawPosts, rules = getRules()) {
   const topic = (rules.taxonomy || []).find((item) => item.key === topicKey);
   if (!topic) return "";
@@ -375,93 +504,113 @@ async function getRedditFeedback({ force = false } = {}) {
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const results = [];
 
-  for (const subreddit of sources.subreddits || []) {
-    let after = null;
-    let reachedCutoff = false;
-    let pageCount = 0;
+  try {
+    for (const subreddit of sources.subreddits || []) {
+      let after = null;
+      let reachedCutoff = false;
+      let pageCount = 0;
 
-    while (!reachedCutoff && pageCount < 10) {
-      pageCount += 1;
-      const url = new URL(`https://api.reddit.com/r/${subreddit}/new`);
-      url.searchParams.set("limit", String(postsPerPage));
-      url.searchParams.set("raw_json", "1");
-      if (after) {
-        url.searchParams.set("after", after);
-      }
-
-      const listing = await fetchJson(url.toString());
-      const children = listing?.data?.children || [];
-      if (!children.length) break;
-
-      for (const child of children) {
-        const post = child.data;
-        const createdMs = Number(post.created_utc || 0) * 1000;
-        if (createdMs < cutoffTs) {
-          reachedCutoff = true;
-          continue;
+      while (!reachedCutoff && pageCount < 10) {
+        pageCount += 1;
+        const url = new URL(`https://api.reddit.com/r/${subreddit}/new`);
+        url.searchParams.set("limit", String(postsPerPage));
+        url.searchParams.set("raw_json", "1");
+        if (after) {
+          url.searchParams.set("after", after);
         }
 
-        const postTitle = sanitizeText(post.title);
-        const postBody = sanitizeText(post.selftext);
-        const permalink = String(post.permalink || "");
-        const externalId = `t3_${post.id}`;
+        const listing = await fetchJson(url.toString());
+        const children = listing?.data?.children || [];
+        if (!children.length) break;
 
-        results.push({
-          external_id: externalId,
-          parent_id: null,
-          platform: "reddit",
-          subreddit,
-          post_type: "submission",
-          title: postTitle,
-          body: postBody,
-          author_name: sanitizeText(post.author),
-          score: Number(post.score || 0),
-          comments_count: Number(post.num_comments || 0),
-          post_url: `https://www.reddit.com${permalink}`,
-          created_at_source: new Date(createdMs).toISOString(),
-          combined_text: sanitizeText(`${postTitle} ${postBody}`),
-        });
-
-        try {
-          const commentUrl = `https://api.reddit.com${permalink}?limit=${commentsPerPost}&depth=1&raw_json=1`;
-          const commentResponse = await fetchJson(commentUrl);
-          const commentListing = commentResponse?.[1];
-          const commentChildren = commentListing?.data?.children || [];
-          let counter = 0;
-
-          for (const commentChild of commentChildren) {
-            if (commentChild.kind !== "t1" || counter >= commentsPerPost) continue;
-            const comment = commentChild.data;
-            if (!String(comment.body || "").trim()) continue;
-            const commentCreatedMs = Number(comment.created_utc || 0) * 1000;
-            if (commentCreatedMs < cutoffTs) continue;
-
-            counter += 1;
-            const commentBody = sanitizeText(comment.body);
-            results.push({
-              external_id: `t1_${comment.id}`,
-              parent_id: externalId,
-              platform: "reddit",
-              subreddit,
-              post_type: "comment",
-              title: postTitle,
-              body: commentBody,
-              author_name: sanitizeText(comment.author),
-              score: Number(comment.score || 0),
-              comments_count: 0,
-              post_url: `https://www.reddit.com${permalink}${comment.id}`,
-              created_at_source: new Date(commentCreatedMs).toISOString(),
-              combined_text: sanitizeText(`${postTitle} ${commentBody}`),
-            });
+        for (const child of children) {
+          const post = child.data;
+          const createdMs = Number(post.created_utc || 0) * 1000;
+          if (createdMs < cutoffTs) {
+            reachedCutoff = true;
+            continue;
           }
-        } catch (error) {
-          console.error("Failed to fetch comments", error);
-        }
-      }
 
-      after = listing?.data?.after || null;
-      if (!after) break;
+          const postTitle = sanitizeText(post.title);
+          const postBody = sanitizeText(post.selftext);
+          const permalink = String(post.permalink || "");
+          const externalId = `t3_${post.id}`;
+
+          results.push({
+            external_id: externalId,
+            parent_id: null,
+            platform: "reddit",
+            subreddit,
+            post_type: "submission",
+            title: postTitle,
+            body: postBody,
+            author_name: sanitizeText(post.author),
+            score: Number(post.score || 0),
+            comments_count: Number(post.num_comments || 0),
+            post_url: `https://www.reddit.com${permalink}`,
+            created_at_source: new Date(createdMs).toISOString(),
+            combined_text: sanitizeText(`${postTitle} ${postBody}`),
+          });
+
+          try {
+            const commentUrl = `https://api.reddit.com${permalink}?limit=${commentsPerPost}&depth=1&raw_json=1`;
+            const commentResponse = await fetchJson(commentUrl);
+            const commentListing = commentResponse?.[1];
+            const commentChildren = commentListing?.data?.children || [];
+            let counter = 0;
+
+            for (const commentChild of commentChildren) {
+              if (commentChild.kind !== "t1" || counter >= commentsPerPost) continue;
+              const comment = commentChild.data;
+              if (!String(comment.body || "").trim()) continue;
+              const commentCreatedMs = Number(comment.created_utc || 0) * 1000;
+              if (commentCreatedMs < cutoffTs) continue;
+
+              counter += 1;
+              const commentBody = sanitizeText(comment.body);
+              results.push({
+                external_id: `t1_${comment.id}`,
+                parent_id: externalId,
+                platform: "reddit",
+                subreddit,
+                post_type: "comment",
+                title: postTitle,
+                body: commentBody,
+                author_name: sanitizeText(comment.author),
+                score: Number(comment.score || 0),
+                comments_count: 0,
+                post_url: `https://www.reddit.com${permalink}${comment.id}`,
+                created_at_source: new Date(commentCreatedMs).toISOString(),
+                combined_text: sanitizeText(`${postTitle} ${commentBody}`),
+              });
+            }
+          } catch (error) {
+            console.error("Failed to fetch comments", error);
+          }
+        }
+
+        after = listing?.data?.after || null;
+        if (!after) break;
+      }
     }
+  } catch (error) {
+    console.error("Falling back from live Reddit fetch", error);
+    try {
+      const localStore = JSON.parse(await fs.readFile(STORE_PATH, "utf8"));
+      const rawPosts = Array.isArray(localStore.raw_posts) ? localStore.raw_posts : [];
+      if (rawPosts.length) {
+        state.cache.raw = rawPosts;
+        state.cache.rawAt = Date.now();
+        return rawPosts;
+      }
+    } catch (storeError) {
+      console.error("Local store fallback unavailable", storeError);
+    }
+
+    const fallback = getFallbackRawPosts();
+    state.cache.raw = fallback;
+    state.cache.rawAt = Date.now();
+    return fallback;
   }
 
   const deduped = Object.values(

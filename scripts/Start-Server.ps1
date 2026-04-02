@@ -21,6 +21,32 @@ function Write-ServerLog {
   Add-Content -Path $ServerLogPath -Value $line -Encoding UTF8
 }
 
+function ConvertTo-PsJsonValue {
+  param($Value)
+
+  if ($null -eq $Value) {
+    return $null
+  }
+
+  if ($Value -is [System.Collections.IDictionary]) {
+    $ordered = [ordered]@{}
+    foreach ($key in $Value.Keys) {
+      $ordered[$key] = ConvertTo-PsJsonValue -Value $Value[$key]
+    }
+    return [pscustomobject]$ordered
+  }
+
+  if (($Value -is [System.Collections.IEnumerable]) -and ($Value -isnot [string])) {
+    $items = @()
+    foreach ($item in $Value) {
+      $items += ,(ConvertTo-PsJsonValue -Value $item)
+    }
+    return $items
+  }
+
+  return $Value
+}
+
 function Read-JsonFile {
   param([string]$Path)
   if (-not (Test-Path $Path)) { return $null }
@@ -28,7 +54,33 @@ function Read-JsonFile {
   if ($fileInfo -and $fileInfo.Length -ge 8MB) {
     Invoke-MemoryCleanup
   }
-  return (Get-Content $Path -Raw | ConvertFrom-Json)
+  $raw = Get-Content -LiteralPath $Path -Raw
+  try {
+    return ($raw | ConvertFrom-Json)
+  } catch {
+    Write-ServerLog ("ConvertFrom-Json failed for {0}: {1}" -f $Path, $_.Exception.Message)
+    try {
+      $normalizedPath = [System.IO.Path]::GetTempFileName()
+      $nodeScript = @"
+const fs = require('fs');
+const args = process.argv.slice(1);
+const inputPath = args[0];
+const outputPath = args[1];
+const data = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+const normalized = JSON.stringify(data, null, 2).replace(/[\u007f-\uffff]/g, (ch) => '\\u' + ch.charCodeAt(0).toString(16).padStart(4, '0'));
+fs.writeFileSync(outputPath, normalized, 'utf8');
+"@
+      & node -e $nodeScript $Path $normalizedPath | Out-Null
+      try {
+        return (Get-Content -LiteralPath $normalizedPath -Raw | ConvertFrom-Json)
+      } finally {
+        Remove-Item -LiteralPath $normalizedPath -Force -ErrorAction SilentlyContinue
+      }
+    } catch {
+      Write-ServerLog ("Node JSON normalization fallback failed for {0}: {1}" -f $Path, $_.Exception.Message)
+      throw
+    }
+  }
 }
 
 function Write-JsonFile {

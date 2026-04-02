@@ -82,10 +82,17 @@ function Get-DefaultRuleConfig {
       @{ key = "server"; label = "Server"; aliases = @("lag","disconnect","server","ping","rubber band","latency") }
       @{ key = "bug"; label = "Bug"; aliases = @("bug","crash","broken","stuck","glitch","issue") }
       @{ key = "anti-cheat"; label = "Anti-Cheat"; aliases = @("hack","cheat","bot","aimbot","exploit") }
-      @{ key = "social"; label = "Social"; aliases = @("guild","friend","chat","social","party","clan") }
-      @{ key = "onboarding"; label = "Onboarding"; aliases = @("tutorial","new player","beginner","onboarding","first hour") }
     )
   }
+}
+
+function Remove-DisabledTaxonomyEntries {
+  param($Taxonomy)
+  return @(
+    @($Taxonomy) | Where-Object {
+      $_.key -and $_.key -notin @("social", "onboarding")
+    }
+  )
 }
 
 function Get-RuleConfig {
@@ -112,8 +119,10 @@ function Get-RuleConfig {
     if (-not $store.rule_config.taxonomy) {
       $store.rule_config | Add-Member -NotePropertyName "taxonomy" -NotePropertyValue $defaultRules.taxonomy -Force
     }
+    $store.rule_config.taxonomy = Remove-DisabledTaxonomyEntries -Taxonomy $store.rule_config.taxonomy
     Write-JsonFile -Path $StorePath -Data $store
   }
+  $store.rule_config.taxonomy = Remove-DisabledTaxonomyEntries -Taxonomy $store.rule_config.taxonomy
   $script:RuleConfigCache = $store.rule_config
   return $script:RuleConfigCache
 }
@@ -201,7 +210,7 @@ function Get-LiveAnalysisItems {
       topic_match_alias = if ($topicMatch) { $topicMatch.alias } else { $null }
       sentiment = $resolvedSentiment
       impact = $impact
-      root_cause_summary = $((Get-TopicRootCause -TopicKey $resolvedTopicKey))
+      root_cause_summary = ""
       action_suggestion = ""
       risk_score = Get-RiskScoreFromLevel -RiskLevel $riskLevel
       risk_level = $riskLevel
@@ -219,24 +228,184 @@ function Get-TopicTaxonomy {
   return @((Get-DefaultRuleConfig).taxonomy)
 }
 
-function Get-TopicRootCause {
+function Decode-Literal {
+  param([string]$Text)
+  return [System.Text.RegularExpressions.Regex]::Unescape($Text)
+}
+
+function Get-TopicLabelZh {
   param([string]$TopicKey)
   $map = @{
-    "monetization" = "Players are angry about value perception, especially pricing and pity progression."
-    "matchmaking" = "Complaints focus on unfair ranked matches, solo players facing stacked groups, and weak match quality."
-    "server" = "Feedback points to lag, disconnects, and unstable reset-hour performance."
-    "balance" = "Players think the current patch compressed viable strategies and made the meta stale too quickly."
-    "anti-cheat" = "Players do not trust competitive integrity and think visible cheaters stay active too long."
-    "onboarding" = "New players are getting lost early and dropping before they understand core systems."
-    "economy" = "The grind-to-reward ratio feels off, especially when players compare daily effort to returns."
-    "event" = "Event pacing and rewards are under scrutiny, especially when expectations were raised by promotions."
-    "progression" = "Players feel progression is too grind-heavy or blocked by unclear requirements."
-    "bug" = "Broken flows and recurring defects are dragging trust down."
-    "social" = "Players feel social features are missing, clunky, or not rewarding enough."
+    "matchmaking" = (Decode-Literal '\u5339\u914d')
+    "economy" = (Decode-Literal '\u7ecf\u6d4e')
+    "monetization" = (Decode-Literal '\u4ed8\u8d39')
+    "event" = (Decode-Literal '\u6d3b\u52a8')
+    "progression" = (Decode-Literal '\u8fdb\u5ea6')
+    "balance" = (Decode-Literal '\u5e73\u8861')
+    "server" = (Decode-Literal '\u670d\u52a1\u5668')
+    "bug" = 'Bug'
+    "anti-cheat" = (Decode-Literal '\u53cd\u4f5c\u5f0a')
+    "social" = (Decode-Literal '\u793e\u4ea4')
+    "onboarding" = (Decode-Literal '\u65b0\u624b\u5f15\u5bfc')
   }
   return $map[$TopicKey]
 }
 
+function Get-TopicFocusLabel {
+  param([string]$TopicKey)
+  $map = @{
+    "monetization" = (Decode-Literal '\u4ed8\u8d39\u4ef7\u503c\u548c\u4ef7\u683c\u611f\u77e5')
+    "matchmaking" = (Decode-Literal '\u5339\u914d\u516c\u5e73\u6027\u548c\u5bf9\u5c40\u8d28\u91cf')
+    "server" = (Decode-Literal '\u8fde\u63a5\u7a33\u5b9a\u6027\u548c\u9ad8\u5cf0\u65f6\u6bb5\u4f53\u9a8c')
+    "balance" = (Decode-Literal '\u7248\u672c\u5f3a\u5ea6\u548c\u5e73\u8861\u8282\u594f')
+    "anti-cheat" = (Decode-Literal '\u7ade\u6280\u73af\u5883\u548c\u4f5c\u5f0a\u5904\u7406')
+    "onboarding" = (Decode-Literal '\u65b0\u624b\u7406\u89e3\u6210\u672c\u548c\u65e9\u671f\u7559\u5b58')
+    "economy" = (Decode-Literal '\u8d44\u6e90\u6295\u5165\u4ea7\u51fa\u548c\u517b\u6210\u56de\u62a5')
+    "event" = (Decode-Literal '\u6d3b\u52a8\u8282\u594f\u3001\u5956\u52b1\u548c\u5ba3\u4f20\u9884\u671f')
+    "progression" = (Decode-Literal '\u6210\u957f\u7ebf\u538b\u529b\u548c\u517b\u6210\u95e8\u69db')
+    "bug" = (Decode-Literal '\u529f\u80fd\u5f02\u5e38\u548c\u6d41\u7a0b\u5931\u6548')
+    "social" = (Decode-Literal '\u8054\u76df\u4e92\u52a8\u548c\u793e\u4ea4\u4f53\u9a8c')
+  }
+  return $map[$TopicKey]
+}
+
+function Get-TopicAliasesByKey {
+  param([string]$TopicKey)
+  $topic = @(Get-TopicTaxonomy) | Where-Object { $_.key -eq $TopicKey } | Select-Object -First 1
+  if ($topic -and $topic.aliases) {
+    return @($topic.aliases)
+  }
+  return @()
+}
+
+function Test-TopicAliasMatch {
+  param(
+    [string]$TopicKey,
+    [string]$Alias,
+    [string]$Text
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Alias) -or [string]::IsNullOrWhiteSpace($Text)) {
+    return $false
+  }
+
+  $normalizedAlias = $Alias.ToLowerInvariant()
+  $lower = $Text.ToLowerInvariant()
+  if ($normalizedAlias -eq 'op') {
+    return $false
+  }
+
+  if ($TopicKey -eq 'bug' -and $normalizedAlias -eq 'issue') {
+    $issuePattern = '((?<![a-z0-9])(issue|issues)(?![a-z0-9])\s+(with|when|after|on|in|causing|caused|stops?|stopped|fails?|failed|won''t|cant|can''t|cannot|bugged))|((login|server|march|forge|weapon|screen|quest|peacekeeping|client|ui|account)\s+(issue|issues))'
+    return [bool]($lower -match $issuePattern)
+  }
+
+  $pattern = '(?<![a-z0-9])' + [regex]::Escape($normalizedAlias) + '(?![a-z0-9])'
+  return [bool]($lower -match $pattern)
+}
+
+function Get-TopicSignalSummary {
+  param(
+    [string]$TopicKey,
+    [object[]]$RawPosts
+  )
+
+  $signals = @{}
+  foreach ($alias in (Get-TopicAliasesByKey -TopicKey $TopicKey)) {
+    $normalizedAlias = ([string]$alias).ToLowerInvariant()
+    if ([string]::IsNullOrWhiteSpace($normalizedAlias) -or $normalizedAlias -eq 'op') {
+      continue
+    }
+    $signals[$normalizedAlias] = 0
+  }
+
+  foreach ($raw in @($RawPosts)) {
+    $directText = Get-DirectTopicText -RawPost $raw
+    foreach ($alias in @($signals.Keys)) {
+      if (Test-TopicAliasMatch -TopicKey $TopicKey -Alias $alias -Text $directText) {
+        $signals[$alias] += 1
+      }
+    }
+  }
+
+  $topSignals = @(
+    $signals.GetEnumerator() |
+      Where-Object { $_.Value -gt 0 } |
+      Sort-Object -Property @{Expression='Value';Descending=$true}, @{Expression='Name';Descending=$false} |
+      Select-Object -First 3 |
+      ForEach-Object { $_.Name }
+  )
+
+  if ($topSignals.Count -eq 0) {
+    return ''
+  }
+
+  return ($topSignals -join (Decode-Literal '\u3001'))
+}
+
+function Get-DynamicTopicRootCause {
+  param(
+    [string]$TopicKey,
+    [string]$RiskLevel,
+    [object[]]$RawPosts
+  )
+
+  $count = @($RawPosts).Count
+  $label = Get-TopicLabelZh -TopicKey $TopicKey
+  if ([string]::IsNullOrWhiteSpace($label)) {
+    $label = $TopicKey
+  }
+  $focus = Get-TopicFocusLabel -TopicKey $TopicKey
+  $signalText = Get-TopicSignalSummary -TopicKey $TopicKey -RawPosts $RawPosts
+  $submissionCount = @($RawPosts | Where-Object { $_.post_type -eq 'submission' }).Count
+  $commentCount = @($RawPosts | Where-Object { $_.post_type -eq 'comment' }).Count
+
+  $focusSentence = if ($signalText) {
+    Decode-Literal "$label\u76f8\u5173\u53cd\u9988\u4e3b\u8981\u805a\u7126\u5728$signalText\uff0c\u6838\u5fc3\u6307\u5411$focus\u3002"
+  } else {
+    Decode-Literal "$label\u76f8\u5173\u53cd\u9988\u4e3b\u8981\u6307\u5411$focus\u3002"
+  }
+
+  $spreadSentence = if ($submissionCount -gt 0 -and $commentCount -gt 0) {
+    Decode-Literal '\u8be5\u95ee\u9898\u540c\u65f6\u51fa\u73b0\u5728\u539f\u5e16\u548c\u8bc4\u8bba\u4e2d\uff0c\u8ba8\u8bba\u6b63\u5728\u6269\u6563\u3002'
+  } elseif ($submissionCount -gt 0) {
+    Decode-Literal '\u8be5\u95ee\u9898\u4ee5\u539f\u5e16\u76f4\u63a5\u53cd\u9988\u4e3a\u4e3b\u3002'
+  } else {
+    Decode-Literal '\u8be5\u95ee\u9898\u76ee\u524d\u4e3b\u8981\u5728\u8bc4\u8bba\u533a\u88ab\u6301\u7eed\u63d0\u53ca\u3002'
+  }
+
+  $riskSentence = switch ($RiskLevel) {
+    'red' { Decode-Literal '\u5f53\u524d\u5df2\u8fdb\u5165\u9ad8\u98ce\u9669\u533a\u95f4\u3002' }
+    'orange' { Decode-Literal '\u5f53\u524d\u5904\u4e8e\u91cd\u70b9\u89c2\u5bdf\u533a\u95f4\u3002' }
+    default { Decode-Literal '\u5f53\u524d\u4ecd\u5c5e\u4e8e\u5e38\u89c4\u89c2\u5bdf\u9636\u6bb5\u3002' }
+  }
+
+  return "$focusSentence$spreadSentence$riskSentence"
+}
+
+function Get-DynamicActionSuggestion {
+  param(
+    [string]$TopicKey,
+    [string]$RiskLevel,
+    [object[]]$RawPosts
+  )
+
+  $focus = Get-TopicFocusLabel -TopicKey $TopicKey
+  $signalText = Get-TopicSignalSummary -TopicKey $TopicKey -RawPosts $RawPosts
+  $target = if ($signalText) { Decode-Literal "$signalText \u76f8\u5173\u95ee\u9898" } else { $focus }
+
+  switch ($RiskLevel) {
+    'red' {
+      return Decode-Literal "\u5efa\u8bae\u7acb\u5373\u6838\u5bf9${target}\u7684\u771f\u5b9e\u5f71\u54cd\u8303\u56f4\uff0c\u6574\u7406\u53d7\u5f71\u54cd\u73a9\u5bb6\u573a\u666f\uff0c\u5e76\u5c3d\u5feb\u51c6\u5907\u5bf9\u5916\u8bf4\u660e\u3001\u4fee\u590d\u8282\u594f\u6216\u8865\u507f\u53e3\u5f84\u3002"
+    }
+    'orange' {
+      return Decode-Literal "\u5efa\u8bae\u4f18\u5148\u590d\u76d8${target}\u7684\u53cd\u9988\u6765\u6e90\uff0c\u786e\u8ba4\u662f\u5426\u9700\u8981\u8c03\u4f18\u914d\u7f6e\u3001\u8865\u5145\u8bf4\u660e\uff0c\u6216\u63d0\u524d\u51c6\u5907\u8fd0\u8425\u56de\u5e94\u3002"
+    }
+    default {
+      return Decode-Literal "\u5efa\u8bae\u6301\u7eed\u6536\u96c6${target}\u7684\u65b0\u589e\u53cd\u9988\uff0c\u7ed3\u5408\u540e\u7eed\u5e16\u5b50\u91cf\u548c\u70ed\u5ea6\u53d8\u5316\u5224\u65ad\u662f\u5426\u9700\u8981\u5347\u7ea7\u5904\u7406\u3002"
+    }
+  }
+}
 function Get-ActionSuggestion {
   param(
     [string]$TopicKey,
@@ -306,7 +475,6 @@ function Get-DirectTopicText {
 
 function Get-TopicMatch {
   param([string]$Text)
-  $lower = $Text.ToLowerInvariant()
   foreach ($topic in (Get-TopicTaxonomy)) {
     foreach ($alias in $topic.aliases) {
       $normalizedAlias = [string]$alias
@@ -314,21 +482,7 @@ function Get-TopicMatch {
         continue
       }
       $normalizedAlias = $normalizedAlias.ToLowerInvariant()
-      if ($normalizedAlias -eq "op") {
-        continue
-      }
-      if ($topic.key -eq "bug" -and $normalizedAlias -eq "issue") {
-        $issuePattern = '((?<![a-z0-9])(issue|issues)(?![a-z0-9])\s+(with|when|after|on|in|causing|caused|stops?|stopped|fails?|failed|won''t|cant|can''t|cannot|bugged))|((login|server|march|forge|weapon|screen|quest|peacekeeping|client|ui|account)\s+(issue|issues))'
-        if ($lower -match $issuePattern) {
-          return [pscustomobject]@{
-            key = $topic.key
-            alias = $normalizedAlias
-          }
-        }
-        continue
-      }
-      $pattern = "(?<![a-z0-9])" + [regex]::Escape($normalizedAlias) + "(?![a-z0-9])"
-      if ($lower -match $pattern) {
+      if (Test-TopicAliasMatch -TopicKey $topic.key -Alias $normalizedAlias -Text $Text) {
         return [pscustomobject]@{
           key = $topic.key
           alias = $normalizedAlias
@@ -673,7 +827,7 @@ function Sync-FeedbackStore {
       topic_match_alias = if ($topicMatch) { $topicMatch.alias } else { $null }
       sentiment = $sentiment
       impact = [Math]::Round($impact, 2)
-      root_cause_summary = $((Get-TopicRootCause -TopicKey $topic))
+      root_cause_summary = ""
       action_suggestion = ""
       risk_score = Get-RiskScoreFromLevel -RiskLevel $contentRiskLevel
       risk_level = $contentRiskLevel
@@ -704,11 +858,14 @@ function Sync-FeedbackStore {
     }
     $riskScore = Get-RiskScoreFromLevel -RiskLevel $topicRiskLevel
     $riskLevel = $topicRiskLevel
+    $dynamicRootCause = Get-DynamicTopicRootCause -TopicKey $topic.key -RiskLevel $riskLevel -RawPosts $heatItems
+    $dynamicActionSuggestion = Get-DynamicActionSuggestion -TopicKey $topic.key -RiskLevel $riskLevel -RawPosts $heatItems
 
     foreach ($entry in $topicAnalysis) {
       $entry.risk_score = $riskScore
       $entry.risk_level = $riskLevel
-      $entry.action_suggestion = Get-ActionSuggestion -TopicKey $topic.key -RiskLevel $riskLevel -Volume $negativeVolume
+      $entry.root_cause_summary = $dynamicRootCause
+      $entry.action_suggestion = $dynamicActionSuggestion
     }
 
     $snapshots += [pscustomobject]@{
@@ -737,6 +894,8 @@ function Sync-FeedbackStore {
           @{Expression="impact";Descending=$true} |
         Select-Object -First 1
       $representativeRaw = if ($representativeAnalysis) { $store.raw_posts | Where-Object { $_.external_id -eq $representativeAnalysis.external_id } | Select-Object -First 1 } else { $null }
+      $topicAnalysisForAlert = @($store.analyzed_feedback | Where-Object { $_.topic_key -eq $snapshot.topic_key })
+      $topicRawForAlert = @($store.raw_posts | Where-Object { $topicAnalysisForAlert.external_id -contains $_.external_id })
       $triggerReason = if ($snapshot.risk_level -eq "red") { "Critical keywords indicate boycott, refund, quit, scam, or exploit risk." } else { "Warning keywords indicate balance, whale, or nerf driven dissatisfaction." }
       $representativePostUrl = if ($representativeRaw) { $representativeRaw.post_url } else { "" }
       $deliveryChannel = if ($snapshot.risk_level -eq "red") { "Feishu + WeCom" } else { "Dashboard + Feishu" }
@@ -748,8 +907,8 @@ function Sync-FeedbackStore {
       risk_level = $snapshot.risk_level
       trigger_reason = $triggerReason
       representative_post_url = $representativePostUrl
-      root_cause_summary = $((Get-TopicRootCause -TopicKey $snapshot.topic_key))
-      action_suggestion = $((Get-ActionSuggestion -TopicKey $snapshot.topic_key -RiskLevel $snapshot.risk_level -Volume $snapshot.negative_volume))
+      root_cause_summary = $((Get-DynamicTopicRootCause -TopicKey $snapshot.topic_key -RiskLevel $snapshot.risk_level -RawPosts $topicRawForAlert))
+      action_suggestion = $((Get-DynamicActionSuggestion -TopicKey $snapshot.topic_key -RiskLevel $snapshot.risk_level -RawPosts $topicRawForAlert))
       owner_name = "Overseas Ops"
       delivery_channel = $deliveryChannel
       delivered_at = $null
@@ -816,6 +975,8 @@ function Get-StoreDataset {
     $riskScore = Get-RiskScoreFromLevel -RiskLevel $riskLevel
     $trend = @($previous | ForEach-Object { [int]$_.risk_score }) + @($riskScore)
     $representativePost = Get-RepresentativeRawForTopic -AnalysisItems $analysis -RawPosts $store.raw_posts
+    $dynamicRootCause = Get-DynamicTopicRootCause -TopicKey $topic.key -RiskLevel $riskLevel -RawPosts $raw
+    $dynamicActionSuggestion = Get-DynamicActionSuggestion -TopicKey $topic.key -RiskLevel $riskLevel -RawPosts $raw
     [pscustomobject]@{
       key = $topic.key
       label = $topic.label
@@ -828,12 +989,16 @@ function Get-StoreDataset {
       riskScore = $riskScore
       riskLevel = $riskLevel
       riskCopy = Get-RiskDisplayCopy -RiskLevel $riskLevel
-      rootCause = $((Get-TopicRootCause -TopicKey $topic.key))
-      actionSuggestion = $((Get-ActionSuggestion -TopicKey $topic.key -RiskLevel $riskLevel -Volume $negativeItems.Count))
+      rootCause = $dynamicRootCause
+      actionSuggestion = $dynamicActionSuggestion
       representativePost = $representativePost
     }
   }
   $issues = @($issues | Sort-Object @{Expression={Get-RiskPriority -RiskLevel $_.riskLevel};Descending=$true}, @{Expression="heat";Descending=$true})
+  $totalIssueOccurrences = [Math]::Max(1, (@($issues | Measure-Object -Property occurrenceCount -Sum).Sum))
+  foreach ($issue in $issues) {
+    $issue | Add-Member -NotePropertyName "riskShare" -NotePropertyValue ([Math]::Round(($issue.occurrenceCount / [double]$totalIssueOccurrences), 2)) -Force
+  }
   $issueMap = @{}
   foreach ($issue in $issues) {
     $issueMap[$issue.key] = $issue
@@ -1015,7 +1180,7 @@ function Save-RuleConfig {
         label = Sanitize-Text ([string]$_.label)
         aliases = @($_.aliases | ForEach-Object { (Sanitize-Text ([string]$_)).ToLowerInvariant() } | Where-Object { $_ })
       }
-    } | Where-Object { $_.key })
+    } | Where-Object { $_.key -and $_.key -notin @("social", "onboarding") })
   }
   if ($store.PSObject.Properties.Name -contains "rule_config") {
     $store.rule_config = $clean

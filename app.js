@@ -16,6 +16,7 @@
     expandedIssueQuotes: {},
     expandedIssueRelated: {},
     issueRelatedCache: {},
+    showAllIssues: false,
   };
 
   const els = {
@@ -37,6 +38,9 @@
     headlineSummary: document.getElementById("headline-summary"),
     alertSummary: document.getElementById("alert-summary"),
     issueList: document.getElementById("issue-list"),
+    allIssueList: document.getElementById("all-issue-list"),
+    allIssuesSection: document.getElementById("all-issues-section"),
+    allIssuesToggle: document.getElementById("all-issues-toggle"),
     topicFilter: document.getElementById("topic-filter"),
     sentimentFilter: document.getElementById("sentiment-filter"),
     riskFilter: document.getElementById("risk-filter"),
@@ -64,6 +68,15 @@
     els.contentTypeFilter.addEventListener("change", onFilterChange("contentType"));
     els.sortFilter.addEventListener("change", onFilterChange("sort"));
     els.issueList.addEventListener("click", onIssueListClick);
+    if (els.allIssueList) {
+      els.allIssueList.addEventListener("click", onIssueListClick);
+    }
+    if (els.allIssuesToggle) {
+      els.allIssuesToggle.addEventListener("click", () => {
+        state.showAllIssues = !state.showAllIssues;
+        renderIssues(state.currentIssues);
+      });
+    }
 
     els.refreshButton.addEventListener("click", async () => {
       els.refreshButton.disabled = true;
@@ -265,6 +278,21 @@
     els.issueList.innerHTML = topIssues.length
       ? topIssues.map((item, index) => renderIssueCard(item, index)).join("")
       : `<div class="empty-state">当前没有可展示的问题主题。</div>`;
+
+    if (els.allIssuesSection && els.allIssueList && els.allIssuesToggle) {
+      const hasMoreIssues = state.currentIssues.length > 4;
+      els.allIssuesToggle.hidden = !hasMoreIssues;
+      els.allIssuesToggle.textContent = state.showAllIssues ? "收起完整榜单" : "查看全部榜单";
+      els.allIssuesSection.hidden = !state.showAllIssues || !state.currentIssues.length;
+      if (state.showAllIssues && state.currentIssues.length) {
+        const remainingIssues = state.currentIssues.slice(4);
+        els.allIssueList.innerHTML = remainingIssues
+          .map((item, index) => renderIssueCard(item, index + 4))
+          .join("");
+      } else {
+        els.allIssueList.innerHTML = "";
+      }
+    }
   }
 
   function renderIssueCard(item, index) {
@@ -303,7 +331,7 @@
         <div class="radar-issue-stats">
           <div class="radar-mini-stat">
             <span>风险占比</span>
-            <strong>${App.formatPercent(item.negativeShare || 0)}</strong>
+            <strong>${App.formatPercent(item.riskShare || item.negativeShare || 0)}</strong>
           </div>
           <div class="radar-mini-stat">
             <span>环比变化</span>

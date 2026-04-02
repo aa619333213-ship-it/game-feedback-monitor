@@ -161,9 +161,19 @@
                 <span class="material-symbols-outlined">trending_down</span>
                 <span>核心负面反馈榜单</span>
               </h3>
-              <a class="radar-export-link" href="./reports.html">导出详情报告</a>
+              <div class="radar-rank-actions">
+                <button id="all-issues-toggle" class="radar-link-button" type="button">查看全部榜单</button>
+                <a class="radar-export-link" href="./reports.html">导出详情报告</a>
+              </div>
             </div>
             <div id="issue-list" class="radar-issue-grid"></div>
+            <section id="all-issues-section" class="radar-all-issues-section" hidden>
+              <div class="radar-all-issues-header">
+                <h4>完整核心负面反馈榜单</h4>
+                <p>按当前风险优先级和热度排序展示全部主题。</p>
+              </div>
+              <div id="all-issue-list" class="radar-issue-grid radar-issue-grid-full"></div>
+            </section>
           </section>
 
           <section class="radar-stream-section">

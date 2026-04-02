@@ -1268,6 +1268,56 @@ input[type="checkbox"] {
   font-weight: 700;
 }
 
+.radar-rank-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.radar-link-button {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.radar-link-button:hover {
+  color: #1d4ed8;
+}
+
+.radar-all-issues-section {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.radar-all-issues-header {
+  margin-bottom: 18px;
+}
+
+.radar-all-issues-header h4 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.radar-all-issues-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.radar-issue-grid-full {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .radar-issue-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

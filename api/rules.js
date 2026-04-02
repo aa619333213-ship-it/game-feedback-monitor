@@ -1,4 +1,4 @@
-const { getRules, setRules } = require("./_lib/monitor");
+const { loadRules, setRules } = require("./_lib/monitor");
 const { methodNotAllowed, readJsonBody, sendJson } = require("./_lib/response");
 
 module.exports = async function handler(req, res) {
@@ -6,11 +6,11 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      return sendJson(res, 200, getRules());
+      return sendJson(res, 200, await loadRules());
     }
 
     if (req.method === "POST") {
-      return sendJson(res, 200, setRules(await readJsonBody(req)));
+      return sendJson(res, 200, await setRules(await readJsonBody(req)));
     }
 
     return methodNotAllowed(res);

@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return methodNotAllowed(res);
 
   try {
-    return sendJson(res, 200, saveReviewLabel(await readJsonBody(req)));
+    return sendJson(res, 200, await saveReviewLabel(await readJsonBody(req)));
   } catch (error) {
     console.error(error);
     return sendJson(res, 500, { error: error.message });

@@ -1,0 +1,13 @@
+{
+  "name": "game-feedback-monitor",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Reddit-based overseas player feedback monitor for Rise of Kingdoms",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vercel/blob": "^0.27.0"
+  }
+}

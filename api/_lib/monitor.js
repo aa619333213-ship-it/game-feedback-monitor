@@ -1,5 +1,6 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { readPersistentStore, writePersistentStore } = require("./persistent-store");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SOURCES_PATH = path.join(ROOT, "data", "sources.json");
@@ -34,6 +35,7 @@ function getState() {
     globalThis.__GFM_VERCEL_STATE = {
       rules: null,
       reviewLabels: [],
+      store: null,
       cache: {
         raw: null,
         dataset: null,
@@ -44,6 +46,78 @@ function getState() {
   }
 
   return globalThis.__GFM_VERCEL_STATE;
+}
+
+function createEmptyStore() {
+  return {
+    raw_posts: [],
+    analyzed_feedback: [],
+    meta: {
+      lastSyncAt: null,
+      game: "Rise of Kingdoms",
+    },
+    risk_daily_snapshot: [],
+    review_labels: [],
+    alerts: [],
+    rule_config: getDefaultRules(),
+  };
+}
+
+function normalizeStoreShape(store) {
+  const base = store && typeof store === "object" ? store : {};
+  const rules = base.rule_config && typeof base.rule_config === "object" ? base.rule_config : getDefaultRules();
+  return {
+    ...createEmptyStore(),
+    ...base,
+    raw_posts: Array.isArray(base.raw_posts) ? base.raw_posts : [],
+    analyzed_feedback: Array.isArray(base.analyzed_feedback) ? base.analyzed_feedback : [],
+    risk_daily_snapshot: Array.isArray(base.risk_daily_snapshot) ? base.risk_daily_snapshot : [],
+    review_labels: Array.isArray(base.review_labels) ? base.review_labels : [],
+    alerts: Array.isArray(base.alerts) ? base.alerts : [],
+    meta: {
+      ...createEmptyStore().meta,
+      ...(base.meta || {}),
+    },
+    rule_config: {
+      ...getDefaultRules(),
+      ...rules,
+      risk: {
+        ...getDefaultRules().risk,
+        ...(rules.risk || {}),
+      },
+      sentiment: {
+        ...getDefaultRules().sentiment,
+        ...(rules.sentiment || {}),
+      },
+      taxonomy: Array.isArray(rules.taxonomy) && rules.taxonomy.length ? rules.taxonomy : getDefaultRules().taxonomy,
+    },
+  };
+}
+
+async function getStore() {
+  const state = getState();
+  if (state.store) {
+    return state.store;
+  }
+
+  const persisted = await readPersistentStore();
+  state.store = normalizeStoreShape(persisted);
+  return state.store;
+}
+
+async function saveStore(nextStore) {
+  const state = getState();
+  state.store = normalizeStoreShape(nextStore);
+  await writePersistentStore(state.store);
+  return state.store;
+}
+
+async function hydrateStateFromStore() {
+  const state = getState();
+  const store = await getStore();
+  state.rules = store.rule_config || getDefaultRules();
+  state.reviewLabels = Array.isArray(store.review_labels) ? store.review_labels : [];
+  return store;
 }
 
 async function readSources() {
@@ -83,6 +157,11 @@ function getRules() {
   }
 
   return state.rules;
+}
+
+async function loadRules() {
+  const store = await hydrateStateFromStore();
+  return store.rule_config || getDefaultRules();
 }
 
 function sanitizeText(value) {
@@ -492,10 +571,19 @@ async function fetchJson(url) {
 async function getRedditFeedback({ force = false } = {}) {
   const state = getState();
   const sources = await readSources();
+  const store = await hydrateStateFromStore();
   const ttlMs = Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
   if (!force && state.cache.raw && Date.now() - state.cache.rawAt < ttlMs) {
     return state.cache.raw;
+  }
+
+  const persistedRaw = Array.isArray(store.raw_posts) ? store.raw_posts : [];
+  const lastSyncMs = store.meta?.lastSyncAt ? new Date(store.meta.lastSyncAt).getTime() : 0;
+  if (!force && persistedRaw.length && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
+    state.cache.raw = persistedRaw;
+    state.cache.rawAt = Date.now();
+    return persistedRaw;
   }
 
   const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), 50);
@@ -512,7 +600,7 @@ async function getRedditFeedback({ force = false } = {}) {
 
       while (!reachedCutoff && pageCount < 10) {
         pageCount += 1;
-        const url = new URL(`https://api.reddit.com/r/${subreddit}/new`);
+        const url = new URL(`https://www.reddit.com/r/${subreddit}/new.json`);
         url.searchParams.set("limit", String(postsPerPage));
         url.searchParams.set("raw_json", "1");
         if (after) {
@@ -553,7 +641,7 @@ async function getRedditFeedback({ force = false } = {}) {
           });
 
           try {
-            const commentUrl = `https://api.reddit.com${permalink}?limit=${commentsPerPost}&depth=1&raw_json=1`;
+            const commentUrl = `https://www.reddit.com${permalink}.json?limit=${commentsPerPost}&depth=1&raw_json=1`;
             const commentResponse = await fetchJson(commentUrl);
             const commentListing = commentResponse?.[1];
             const commentChildren = commentListing?.data?.children || [];
@@ -595,16 +683,10 @@ async function getRedditFeedback({ force = false } = {}) {
     }
   } catch (error) {
     console.error("Falling back from live Reddit fetch", error);
-    try {
-      const localStore = JSON.parse(await fs.readFile(STORE_PATH, "utf8"));
-      const rawPosts = Array.isArray(localStore.raw_posts) ? localStore.raw_posts : [];
-      if (rawPosts.length) {
-        state.cache.raw = rawPosts;
-        state.cache.rawAt = Date.now();
-        return rawPosts;
-      }
-    } catch (storeError) {
-      console.error("Local store fallback unavailable", storeError);
+    if (persistedRaw.length) {
+      state.cache.raw = persistedRaw;
+      state.cache.rawAt = Date.now();
+      return persistedRaw;
     }
 
     const fallback = getFallbackRawPosts();
@@ -705,6 +787,7 @@ function buildAlerts(issues) {
 async function buildDataset({ force = false } = {}) {
   const state = getState();
   const sources = await readSources();
+  const store = await hydrateStateFromStore();
   const ttlMs = Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
   if (!force && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
@@ -713,7 +796,7 @@ async function buildDataset({ force = false } = {}) {
 
   const rules = getRules();
   const rawPosts = await getRedditFeedback({ force });
-  const reviewLabels = state.reviewLabels || [];
+  const reviewLabels = Array.isArray(store.review_labels) ? store.review_labels : [];
   const reviewMap = new Map(reviewLabels.map((item) => [item.postId, item]));
 
   const analysisItems = rawPosts.map((raw) => {
@@ -916,13 +999,39 @@ async function buildDataset({ force = false } = {}) {
     reviewActions: reviewLabels,
   };
 
+  const persistedStore = normalizeStoreShape({
+    ...store,
+    raw_posts: rawPosts,
+    analyzed_feedback: analysisItems,
+    meta: {
+      ...(store.meta || {}),
+      lastSyncAt: overview.lastSyncAt,
+      game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
+    },
+    risk_daily_snapshot: issues.map((issue) => ({
+      snapshot_date: new Date().toISOString().slice(0, 10),
+      topic_key: issue.key,
+      topic_label: issue.label,
+      negative_volume: issue.negativeCount,
+      negative_growth: issue.growth,
+      discussion_heat: issue.heat,
+      high_impact_count: posts.filter((item) => item.topic === issue.key && item.impact >= 0.65).length,
+      risk_score: issue.riskScore,
+      risk_level: issue.riskLevel,
+    })),
+    review_labels: reviewLabels,
+    alerts,
+    rule_config: rules,
+  });
+  await saveStore(persistedStore);
   state.cache.dataset = dataset;
   state.cache.datasetAt = Date.now();
   return dataset;
 }
 
-function setRules(payload) {
+async function setRules(payload) {
   const state = getState();
+  const store = await hydrateStateFromStore();
   state.rules = {
     risk: {
       red: (payload?.risk?.red || []).map((item) => sanitizeText(item).toLowerCase()).filter(Boolean),
@@ -941,13 +1050,19 @@ function setRules(payload) {
       }))
       .filter((item) => item.key),
   };
+  await saveStore({
+    ...store,
+    rule_config: state.rules,
+    review_labels: state.reviewLabels || store.review_labels || [],
+  });
   state.cache.dataset = null;
   state.cache.datasetAt = 0;
   return { ok: true, rules: state.rules };
 }
 
-function saveReviewLabel(payload) {
+async function saveReviewLabel(payload) {
   const state = getState();
+  const store = await hydrateStateFromStore();
   const entry = {
     postId: payload.postId,
     topic: payload.topic,
@@ -961,6 +1076,11 @@ function saveReviewLabel(payload) {
 
   state.reviewLabels = (state.reviewLabels || []).filter((item) => item.postId !== payload.postId);
   state.reviewLabels.unshift(entry);
+  await saveStore({
+    ...store,
+    review_labels: state.reviewLabels,
+    rule_config: state.rules || store.rule_config || getDefaultRules(),
+  });
   state.cache.dataset = null;
   state.cache.datasetAt = 0;
   return { ok: true };
@@ -972,6 +1092,7 @@ function forceRefresh() {
   state.cache.dataset = null;
   state.cache.rawAt = 0;
   state.cache.datasetAt = 0;
+  state.store = null;
 }
 
 async function getPostsResponse(query = {}) {
@@ -1018,6 +1139,7 @@ module.exports = {
   forceRefresh,
   getPostsResponse,
   getRules,
+  loadRules,
   readSources,
   saveReviewLabel,
   setRules,

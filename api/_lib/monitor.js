@@ -546,13 +546,15 @@ function getWeightedRiskSummary(posts) {
   };
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, options = {}) {
+  const timeoutMs = Number(options.timeoutMs || 15000);
+  const maxAttempts = Math.max(1, Number(options.maxAttempts || 3));
   let lastError = null;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       const response = await fetch(url, {
         cache: "no-store",
         headers: {
@@ -578,13 +580,15 @@ async function fetchJson(url) {
   throw lastError || new Error(`Fetch failed: ${url}`);
 }
 
-async function fetchText(url) {
+async function fetchText(url, options = {}) {
+  const timeoutMs = Number(options.timeoutMs || 15000);
+  const maxAttempts = Math.max(1, Number(options.maxAttempts || 3));
   let lastError = null;
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 15000);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       const response = await fetch(url, {
         cache: "no-store",
         headers: {
@@ -745,11 +749,11 @@ function buildRedditListingUrls(subreddit, postsPerPage, after) {
   });
 }
 
-async function fetchRedditListing(subreddit, postsPerPage, after) {
+async function fetchRedditListing(subreddit, postsPerPage, after, options = {}) {
   let lastError = null;
   for (const url of buildRedditListingUrls(subreddit, postsPerPage, after)) {
     try {
-      return await fetchJson(url);
+      return await fetchJson(url, options);
     } catch (error) {
       lastError = error;
     }
@@ -757,7 +761,7 @@ async function fetchRedditListing(subreddit, postsPerPage, after) {
 
   const rssUrl = `https://www.reddit.com/r/${subreddit}/new/.rss?limit=${postsPerPage}&sort=new&_=${Date.now()}`;
   try {
-    const xml = await fetchText(rssUrl);
+    const xml = await fetchText(rssUrl, options);
     return normalizeRssListing(subreddit, xml);
   } catch (error) {
     lastError = error;
@@ -786,11 +790,11 @@ function buildRedditCommentUrls(permalink, commentsPerPost) {
   });
 }
 
-async function fetchRedditComments(permalink, commentsPerPost) {
+async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   let lastError = null;
   for (const url of buildRedditCommentUrls(permalink, commentsPerPost)) {
     try {
-      return await fetchJson(url);
+      return await fetchJson(url, options);
     } catch (error) {
       lastError = error;
     }
@@ -798,7 +802,7 @@ async function fetchRedditComments(permalink, commentsPerPost) {
 
   try {
     const rssUrl = `https://www.reddit.com${permalink}.rss?limit=${commentsPerPost}&sort=new&_=${Date.now()}`;
-    const xml = await fetchText(rssUrl);
+    const xml = await fetchText(rssUrl, options);
     return normalizeRssComments(xml, commentsPerPost, "", permalink);
   } catch (error) {
     lastError = error;
@@ -841,6 +845,11 @@ async function getRedditFeedback({ force = false } = {}) {
     : configuredCommentsPerPost;
   const lookbackDays = Number(sources.lookbackDays || 3);
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
+  const requestOptions = liveSyncMode
+    ? { timeoutMs: 5000, maxAttempts: 1 }
+    : volatileRuntime
+      ? { timeoutMs: 8000, maxAttempts: 2 }
+      : {};
   const results = [];
 
   try {
@@ -851,7 +860,7 @@ async function getRedditFeedback({ force = false } = {}) {
 
       while (!reachedCutoff && pageCount < (liveSyncMode ? 3 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
-        const listing = await fetchRedditListing(subreddit, postsPerPage, after);
+        const listing = await fetchRedditListing(subreddit, postsPerPage, after, requestOptions);
         const children = listing?.data?.children || [];
         if (!children.length) break;
 
@@ -886,7 +895,7 @@ async function getRedditFeedback({ force = false } = {}) {
 
           if (commentsPerPost > 0) {
             try {
-              const commentResponse = await fetchRedditComments(permalink, commentsPerPost);
+              const commentResponse = await fetchRedditComments(permalink, commentsPerPost, requestOptions);
               const commentListing = commentResponse?.[1];
               const commentChildren = commentListing?.data?.children || [];
               let counter = 0;

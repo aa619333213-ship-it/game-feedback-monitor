@@ -5,6 +5,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const LOCAL_STORE_PATH = path.join(ROOT, "data", "store.json");
 const SEED_STORE_PATH = path.join(ROOT, "data", "store.seed.json");
 const STORE_BLOB_PATH = "game-feedback-monitor/store.json";
+const REMOTE_SEED_URL =
+  "https://raw.githubusercontent.com/aa619333213-ship-it/game-feedback-monitor/main/data/store.seed.json";
 
 function isVercelRuntime() {
   return Boolean(process.env.VERCEL);
@@ -72,6 +74,15 @@ async function readPersistentStore() {
   if (hasBlobStorage()) {
     const blobStore = await seedBlobStoreIfNeeded();
     if (blobStore) return blobStore;
+  }
+
+  if (isVercelRuntime()) {
+    try {
+      const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, { cache: "no-store" });
+      if (response.ok) {
+        return response.json();
+      }
+    } catch {}
   }
 
   try {

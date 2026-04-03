@@ -1,6 +1,15 @@
 name: Sync Monitor Data
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "api/**"
+      - "scripts/**"
+      - ".github/workflows/sync-monitor.yml"
+      - "package.json"
+      - "package-lock.json"
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
@@ -10,6 +19,7 @@ permissions:
 
 jobs:
   sync:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

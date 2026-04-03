@@ -833,10 +833,11 @@ async function getRedditFeedback({ force = false } = {}) {
     return persistedRaw;
   }
 
-  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), volatileRuntime ? 35 : 50);
+  const liveSyncMode = volatileRuntime && force;
+  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 15 : volatileRuntime ? 35 : 50);
   const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
   const commentsPerPost = volatileRuntime
-    ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, 2)) : 0)
+    ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, liveSyncMode ? 1 : 2)) : 0)
     : configuredCommentsPerPost;
   const lookbackDays = Number(sources.lookbackDays || 3);
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
@@ -848,7 +849,7 @@ async function getRedditFeedback({ force = false } = {}) {
       let reachedCutoff = false;
       let pageCount = 0;
 
-      while (!reachedCutoff && pageCount < (volatileRuntime ? 6 : 10)) {
+      while (!reachedCutoff && pageCount < (liveSyncMode ? 3 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after);
         const children = listing?.data?.children || [];

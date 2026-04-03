@@ -547,9 +547,12 @@ async function fetchJson(url) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
       const response = await fetch(url, {
+        cache: "no-store",
         headers: {
           "User-Agent": "GameFeedbackMonitor/1.0 (Vercel)",
           Accept: "application/json",
+          "Cache-Control": "no-cache, no-store, max-age=0",
+          Pragma: "no-cache",
         },
         signal: controller.signal,
       });
@@ -566,6 +569,74 @@ async function fetchJson(url) {
   }
 
   throw lastError || new Error(`Fetch failed: ${url}`);
+}
+
+function buildRedditListingUrls(subreddit, postsPerPage, after) {
+  const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const candidates = [
+    `https://www.reddit.com/r/${subreddit}/new.json`,
+    `https://www.reddit.com/r/${subreddit}/new/.json`,
+    `https://api.reddit.com/r/${subreddit}/new`,
+    `https://old.reddit.com/r/${subreddit}/new/.json`,
+  ];
+
+  return candidates.map((baseUrl) => {
+    const url = new URL(baseUrl);
+    url.searchParams.set("limit", String(postsPerPage));
+    url.searchParams.set("raw_json", "1");
+    url.searchParams.set("sort", "new");
+    url.searchParams.set("_", nonce);
+    if (after) {
+      url.searchParams.set("after", after);
+    }
+    return url.toString();
+  });
+}
+
+async function fetchRedditListing(subreddit, postsPerPage, after) {
+  let lastError = null;
+  for (const url of buildRedditListingUrls(subreddit, postsPerPage, after)) {
+    try {
+      return await fetchJson(url);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`Failed to fetch Reddit listing for r/${subreddit}`);
+}
+
+function buildRedditCommentUrls(permalink, commentsPerPost) {
+  const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const sanitizedPermalink = String(permalink || "").replace(/^\//, "");
+  const candidates = [
+    `https://www.reddit.com/${sanitizedPermalink}.json`,
+    `https://api.reddit.com/${sanitizedPermalink}`,
+    `https://old.reddit.com/${sanitizedPermalink}.json`,
+  ];
+
+  return candidates.map((baseUrl) => {
+    const url = new URL(baseUrl);
+    url.searchParams.set("limit", String(commentsPerPost));
+    url.searchParams.set("depth", "1");
+    url.searchParams.set("raw_json", "1");
+    url.searchParams.set("sort", "new");
+    url.searchParams.set("_", nonce);
+    return url.toString();
+  });
+}
+
+async function fetchRedditComments(permalink, commentsPerPost) {
+  let lastError = null;
+  for (const url of buildRedditCommentUrls(permalink, commentsPerPost)) {
+    try {
+      return await fetchJson(url);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`Failed to fetch Reddit comments for ${permalink}`);
 }
 
 async function getRedditFeedback({ force = false } = {}) {
@@ -600,14 +671,7 @@ async function getRedditFeedback({ force = false } = {}) {
 
       while (!reachedCutoff && pageCount < 10) {
         pageCount += 1;
-        const url = new URL(`https://www.reddit.com/r/${subreddit}/new.json`);
-        url.searchParams.set("limit", String(postsPerPage));
-        url.searchParams.set("raw_json", "1");
-        if (after) {
-          url.searchParams.set("after", after);
-        }
-
-        const listing = await fetchJson(url.toString());
+        const listing = await fetchRedditListing(subreddit, postsPerPage, after);
         const children = listing?.data?.children || [];
         if (!children.length) break;
 
@@ -641,8 +705,7 @@ async function getRedditFeedback({ force = false } = {}) {
           });
 
           try {
-            const commentUrl = `https://www.reddit.com${permalink}.json?limit=${commentsPerPost}&depth=1&raw_json=1`;
-            const commentResponse = await fetchJson(commentUrl);
+            const commentResponse = await fetchRedditComments(permalink, commentsPerPost);
             const commentListing = commentResponse?.[1];
             const commentChildren = commentListing?.data?.children || [];
             let counter = 0;

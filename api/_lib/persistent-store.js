@@ -37,7 +37,12 @@ async function readStoreFromBlob() {
   if (!hasBlobStorage()) return null;
   const blobs = await listBlobCandidates();
   if (!blobs.length) return null;
-  const response = await fetch(blobs[0].url, { cache: "no-store" });
+  const response = await fetch(blobs[0].url, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+    },
+  });
   if (!response.ok) {
     throw new Error(`Failed to fetch persisted blob store: ${response.status}`);
   }
@@ -51,7 +56,7 @@ async function writeStoreToBlob(value) {
     await del(blobs.map((item) => item.url));
   }
   await put(STORE_BLOB_PATH, JSON.stringify(value, null, 2), {
-    access: "public",
+    access: "private",
     addRandomSuffix: false,
     contentType: "application/json; charset=utf-8",
   });

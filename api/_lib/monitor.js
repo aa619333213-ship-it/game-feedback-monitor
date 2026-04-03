@@ -1,6 +1,6 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { readPersistentStore, writePersistentStore } = require("./persistent-store");
+const { hasBlobStorage, readPersistentStore, writePersistentStore } = require("./persistent-store");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SOURCES_PATH = path.join(ROOT, "data", "sources.json");
@@ -46,6 +46,10 @@ function getState() {
   }
 
   return globalThis.__GFM_VERCEL_STATE;
+}
+
+function isVolatileVercelRuntime() {
+  return Boolean(process.env.VERCEL) && !hasBlobStorage();
 }
 
 function createEmptyStore() {
@@ -96,13 +100,16 @@ function normalizeStoreShape(store) {
 
 async function getStore() {
   const state = getState();
-  if (state.store) {
+  if (state.store && !isVolatileVercelRuntime()) {
     return state.store;
   }
 
   const persisted = await readPersistentStore();
-  state.store = normalizeStoreShape(persisted);
-  return state.store;
+  const normalized = normalizeStoreShape(persisted);
+  if (!isVolatileVercelRuntime()) {
+    state.store = normalized;
+  }
+  return normalized;
 }
 
 async function saveStore(nextStore) {
@@ -804,7 +811,7 @@ async function getRedditFeedback({ force = false } = {}) {
   const state = getState();
   const sources = await readSources();
   const store = await hydrateStateFromStore();
-  const ttlMs = Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
+  const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
   if (!force && state.cache.raw && Date.now() - state.cache.rawAt < ttlMs) {
     return state.cache.raw;
@@ -1012,7 +1019,7 @@ async function buildDataset({ force = false } = {}) {
   const state = getState();
   const sources = await readSources();
   const store = await hydrateStateFromStore();
-  const ttlMs = Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
+  const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
   if (!force && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
     return state.cache.dataset;

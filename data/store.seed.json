@@ -1,6 +1,21 @@
 {
   "raw_posts": [
     {
+      "external_id": "t1_oe0uo71",
+      "parent_id": "t3_1sa2xvd",
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "comment",
+      "title": "What do i do from here? prekvk-1",
+      "body": "t2 to t4 tip is really nice, i will start from today forward in batches of 20k to 20k",
+      "author_name": "/u/Icy_Mycologist6693",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sa2xvd/what_do_i_do_from_here_prekvk1/oe0uo71",
+      "created_at_source": "2026-04-03T05:56:54.000Z",
+      "combined_text": "What do i do from here? prekvk-1 t2 to t4 tip is really nice, i will start from today forward in batches of 20k to 20k"
+    },
+    {
       "external_id": "t1_oe0jzdq",
       "parent_id": "t3_1sb0wpx",
       "platform": "reddit",
@@ -134,21 +149,6 @@
       "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sa2xvd/what_do_i_do_from_here_prekvk1/odzwl0b",
       "created_at_source": "2026-04-03T02:02:35.000Z",
       "combined_text": "What do i do from here? prekvk-1 You still have a while before pre kvk starts, keep forts going (atleast try for 10 forts a day) and save the universal/healing speed ups. Train t2 troops during training events and upgrade to t4 when no event. You will be fine."
-    },
-    {
-      "external_id": "t1_odzdn06",
-      "parent_id": "t3_1sa2xvd",
-      "platform": "reddit",
-      "subreddit": "RiseofKingdoms",
-      "post_type": "comment",
-      "title": "What do i do from here? prekvk-1",
-      "body": "the other side of my grind is i log on everyday, 3-4 hours sometimes on objectives up to 6+, i dont do it all at once but rather little sessions of 25-30mins, whenever im doing something else i always make sure to auto barb all that.",
-      "author_name": "/u/Icy_Mycologist6693",
-      "score": 0,
-      "comments_count": 0,
-      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sa2xvd/what_do_i_do_from_here_prekvk1/odzdn06",
-      "created_at_source": "2026-04-03T00:11:12.000Z",
-      "combined_text": "What do i do from here? prekvk-1 the other side of my grind is i log on everyday, 3-4 hours sometimes on objectives up to 6+, i dont do it all at once but rather little sessions of 25-30mins, whenever im doing something else i always make sure to auto barb all that."
     },
     {
       "external_id": "t1_odzbi1y",
@@ -2328,6 +2328,18 @@
   ],
   "analyzed_feedback": [
     {
+      "external_id": "t1_oe0uo71",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "neutral",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
       "external_id": "t1_oe0jzdq",
       "topic_key": "other",
       "topic_match_alias": null,
@@ -2427,18 +2439,6 @@
       "external_id": "t1_odzwl0b",
       "topic_key": "event",
       "topic_match_alias": "event",
-      "sentiment": "neutral",
-      "impact": 0,
-      "root_cause_summary": "",
-      "action_suggestion": "",
-      "risk_score": 25,
-      "risk_level": "green",
-      "ignored": false
-    },
-    {
-      "external_id": "t1_odzdn06",
-      "topic_key": "progression",
-      "topic_match_alias": "grind",
       "sentiment": "neutral",
       "impact": 0,
       "root_cause_summary": "",
@@ -4189,7 +4189,7 @@
     }
   ],
   "meta": {
-    "lastSyncAt": "2026-04-03T05:57:08.949Z",
+    "lastSyncAt": "2026-04-03T06:07:48.623Z",
     "game": "Rise of Kingdoms"
   },
   "risk_daily_snapshot": [
@@ -4209,7 +4209,7 @@
       "topic_key": "progression",
       "topic_label": "Progression",
       "negative_volume": 0,
-      "negative_growth": -0.14,
+      "negative_growth": -0.29,
       "discussion_heat": 0,
       "high_impact_count": 0,
       "risk_score": 65,
@@ -4317,8 +4317,8 @@
       "risk_level": "orange",
       "trigger_reason": "Warning keywords indicate balance, whale, or nerf driven dissatisfaction.",
       "representative_post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1s951xv/concerns_over_future_of_power_creep/",
-      "root_cause_summary": "进度相关反馈主要聚焦在level、grind、farm，核心指向成长线压力和养成门槛。该问题同时出现在原帖和评论中，讨论正在扩散。当前处于重点观察区间。",
-      "action_suggestion": "建议优先复盘level、grind、farm 相关问题的反馈来源，确认是否需要调优配置、补充说明，或提前准备运营回应。",
+      "root_cause_summary": "进度相关反馈主要聚焦在level、farm、grind，核心指向成长线压力和养成门槛。该问题同时出现在原帖和评论中，讨论正在扩散。当前处于重点观察区间。",
+      "action_suggestion": "建议优先复盘level、farm、grind 相关问题的反馈来源，确认是否需要调优配置、补充说明，或提前准备运营回应。",
       "owner_name": "Overseas Ops",
       "delivery_channel": "Dashboard + Feishu",
       "delivered_at": null

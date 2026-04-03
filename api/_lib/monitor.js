@@ -571,6 +571,151 @@ async function fetchJson(url) {
   throw lastError || new Error(`Fetch failed: ${url}`);
 }
 
+async function fetchText(url) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "User-Agent": "GameFeedbackMonitor/1.0 (Vercel)",
+          Accept: "application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
+          "Cache-Control": "no-cache, no-store, max-age=0",
+          Pragma: "no-cache",
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        throw new Error(`Fetch failed ${response.status}: ${url}`);
+      }
+
+      return response.text();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`Fetch failed: ${url}`);
+}
+
+function decodeHtmlEntities(value) {
+  return String(value || "")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function stripHtml(value) {
+  return sanitizeText(
+    decodeHtmlEntities(String(value || ""))
+      .replace(/<br\s*\/?>/gi, " ")
+      .replace(/<\/p>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+  );
+}
+
+function getXmlTagValue(xml, tag) {
+  const match = String(xml || "").match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? match[1] : "";
+}
+
+function getXmlLinkHref(xml) {
+  const match = String(xml || "").match(/<link\b[^>]*href="([^"]+)"/i);
+  return match ? decodeHtmlEntities(match[1]) : "";
+}
+
+function parseRssEntries(xml) {
+  return [...String(xml || "").matchAll(/<entry\b[\s\S]*?>([\s\S]*?)<\/entry>/gi)].map((match) => match[1]);
+}
+
+function normalizeRedditPath(link) {
+  try {
+    const url = new URL(link);
+    return `${url.pathname.replace(/\/+$/, "")}/`;
+  } catch {
+    return "";
+  }
+}
+
+function normalizeRssListing(subreddit, xml) {
+  const children = parseRssEntries(xml).map((entry) => {
+    const link = getXmlLinkHref(entry);
+    const permalink = normalizeRedditPath(link);
+    const postIdMatch = permalink.match(/\/comments\/([a-z0-9]+)\//i);
+    const postId = postIdMatch ? postIdMatch[1] : "";
+    const title = stripHtml(getXmlTagValue(entry, "title"));
+    const body = stripHtml(getXmlTagValue(entry, "content") || getXmlTagValue(entry, "summary"));
+    const authorBlock = getXmlTagValue(entry, "author");
+    const author = stripHtml(getXmlTagValue(authorBlock, "name"));
+    const updated = getXmlTagValue(entry, "updated") || getXmlTagValue(entry, "published");
+    const createdUtc = updated ? Math.floor(new Date(updated).getTime() / 1000) : 0;
+
+    return {
+      kind: "t3",
+      data: {
+        id: postId || `rss_${Math.random().toString(16).slice(2)}`,
+        title,
+        selftext: body,
+        author,
+        score: 0,
+        num_comments: 0,
+        permalink: permalink || `/r/${subreddit}/`,
+        created_utc: createdUtc,
+      },
+    };
+  });
+
+  return {
+    data: {
+      children,
+      after: null,
+    },
+  };
+}
+
+function normalizeRssComments(xml, commentsPerPost, postTitle, fallbackPermalink) {
+  const entries = parseRssEntries(xml)
+    .slice(0, commentsPerPost)
+    .map((entry, index) => {
+      const link = getXmlLinkHref(entry);
+      const normalizedLink = normalizeRedditPath(link) || fallbackPermalink;
+      const parts = normalizedLink.split("/").filter(Boolean);
+      const commentId = parts[parts.length - 1] || `rss_comment_${index}`;
+      const authorBlock = getXmlTagValue(entry, "author");
+      const author = stripHtml(getXmlTagValue(authorBlock, "name"));
+      const body = stripHtml(getXmlTagValue(entry, "content") || getXmlTagValue(entry, "summary"));
+      const updated = getXmlTagValue(entry, "updated") || getXmlTagValue(entry, "published");
+      const createdUtc = updated ? Math.floor(new Date(updated).getTime() / 1000) : 0;
+
+      return {
+        kind: "t1",
+        data: {
+          id: commentId,
+          author,
+          body,
+          score: 0,
+          created_utc: createdUtc,
+        },
+        __meta: {
+          title: postTitle,
+          permalink: normalizedLink,
+        },
+      };
+    });
+
+  return [{ data: { children: [] } }, { data: { children: entries } }];
+}
+
 function buildRedditListingUrls(subreddit, postsPerPage, after) {
   const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const candidates = [
@@ -601,6 +746,14 @@ async function fetchRedditListing(subreddit, postsPerPage, after) {
     } catch (error) {
       lastError = error;
     }
+  }
+
+  const rssUrl = `https://www.reddit.com/r/${subreddit}/new/.rss?limit=${postsPerPage}&sort=new&_=${Date.now()}`;
+  try {
+    const xml = await fetchText(rssUrl);
+    return normalizeRssListing(subreddit, xml);
+  } catch (error) {
+    lastError = error;
   }
 
   throw lastError || new Error(`Failed to fetch Reddit listing for r/${subreddit}`);
@@ -634,6 +787,14 @@ async function fetchRedditComments(permalink, commentsPerPost) {
     } catch (error) {
       lastError = error;
     }
+  }
+
+  try {
+    const rssUrl = `https://www.reddit.com${permalink}.rss?limit=${commentsPerPost}&sort=new&_=${Date.now()}`;
+    const xml = await fetchText(rssUrl);
+    return normalizeRssComments(xml, commentsPerPost, "", permalink);
+  } catch (error) {
+    lastError = error;
   }
 
   throw lastError || new Error(`Failed to fetch Reddit comments for ${permalink}`);

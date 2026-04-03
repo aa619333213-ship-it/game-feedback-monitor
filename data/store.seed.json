@@ -1,6 +1,51 @@
 {
   "raw_posts": [
     {
+      "external_id": "t1_oe1xat5",
+      "parent_id": "t3_1sas8kh",
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "comment",
+      "title": "Support of Rise of Kingdoms is bad",
+      "body": "Haha bro you got raked on your last post and so you just reposted it again to the same subreddit thinking things were going to change. You might be the biggest idiot here",
+      "author_name": "/u/CheBae101",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sas8kh/support_of_rise_of_kingdoms_is_bad/oe1xat5",
+      "created_at_source": "2026-04-03T11:25:43.000Z",
+      "combined_text": "Support of Rise of Kingdoms is bad Haha bro you got raked on your last post and so you just reposted it again to the same subreddit thinking things were going to change. You might be the biggest idiot here"
+    },
+    {
+      "external_id": "t3_1sbahjy",
+      "parent_id": null,
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "submission",
+      "title": "I am a low spender need help",
+      "body": "Greetings, I want to set up an account in the newly opened kingdom. I will deposit $330 into the account, which packages do you recommend me to buy? &#32; submitted by &#32; /u/Jumpy-Enthusiasm-329 [link] &#32; [comments]",
+      "author_name": "/u/Jumpy-Enthusiasm-329",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sbahjy/i_am_a_low_spender_need_help/",
+      "created_at_source": "2026-04-03T11:02:54.000Z",
+      "combined_text": "I am a low spender need help Greetings, I want to set up an account in the newly opened kingdom. I will deposit $330 into the account, which packages do you recommend me to buy? &#32; submitted by &#32; /u/Jumpy-Enthusiasm-329 [link] &#32; [comments]"
+    },
+    {
+      "external_id": "t1_i_am_a_low_spender_need_help",
+      "parent_id": "t3_1sbahjy",
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "comment",
+      "title": "I am a low spender need help",
+      "body": "Greetings, I want to set up an account in the newly opened kingdom. I will deposit $330 into the account, which packages do you recommend me to buy? &#32; submitted by &#32; /u/Jumpy-Enthusiasm-329 [link] &#32; [comments]",
+      "author_name": "/u/Jumpy-Enthusiasm-329",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sbahjy/i_am_a_low_spender_need_help/i_am_a_low_spender_need_help",
+      "created_at_source": "2026-04-03T11:02:54.000Z",
+      "combined_text": "I am a low spender need help Greetings, I want to set up an account in the newly opened kingdom. I will deposit $330 into the account, which packages do you recommend me to buy? &#32; submitted by &#32; /u/Jumpy-Enthusiasm-329 [link] &#32; [comments]"
+    },
+    {
       "external_id": "t1_oe1s65q",
       "parent_id": "t3_1sb99n0",
       "platform": "reddit",
@@ -134,21 +179,6 @@
       "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sakm4y/currently_at_city_hall_8_with_power_given_in_the/oe19tsa",
       "created_at_source": "2026-04-03T08:07:45.000Z",
       "combined_text": "Currently at City hall 8, with power given in the photo. Account created on 31 March. Bruh, you&#39;ve been here 4 days. Play the game and you&#39;ll learn about it, asking anything now is like askng your parents if you&#39;ve arrived yet and you only just got in the car."
-    },
-    {
-      "external_id": "t1_oe16yw9",
-      "parent_id": "t3_1sas8kh",
-      "platform": "reddit",
-      "subreddit": "RiseofKingdoms",
-      "post_type": "comment",
-      "title": "Support of Rise of Kingdoms is bad",
-      "body": "are you 12?",
-      "author_name": "/u/purplewarrior777",
-      "score": 0,
-      "comments_count": 0,
-      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sas8kh/support_of_rise_of_kingdoms_is_bad/oe16yw9",
-      "created_at_source": "2026-04-03T07:42:22.000Z",
-      "combined_text": "Support of Rise of Kingdoms is bad are you 12?"
     },
     {
       "external_id": "t1_oe15x94",
@@ -2313,6 +2343,42 @@
   ],
   "analyzed_feedback": [
     {
+      "external_id": "t1_oe1xat5",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "neutral",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
+      "external_id": "t3_1sbahjy",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "neutral",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
+      "external_id": "t1_i_am_a_low_spender_need_help",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "neutral",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
       "external_id": "t1_oe1s65q",
       "topic_key": "other",
       "topic_match_alias": null,
@@ -2410,18 +2476,6 @@
     },
     {
       "external_id": "t1_oe19tsa",
-      "topic_key": "other",
-      "topic_match_alias": null,
-      "sentiment": "neutral",
-      "impact": 0,
-      "root_cause_summary": "",
-      "action_suggestion": "",
-      "risk_score": 25,
-      "risk_level": "green",
-      "ignored": false
-    },
-    {
-      "external_id": "t1_oe16yw9",
       "topic_key": "other",
       "topic_match_alias": null,
       "sentiment": "neutral",
@@ -4162,7 +4216,7 @@
     }
   ],
   "meta": {
-    "lastSyncAt": "2026-04-03T10:57:33.947Z",
+    "lastSyncAt": "2026-04-03T11:27:31.531Z",
     "game": "Rise of Kingdoms"
   },
   "risk_daily_snapshot": [

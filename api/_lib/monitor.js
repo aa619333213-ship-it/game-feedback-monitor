@@ -834,7 +834,10 @@ async function getRedditFeedback({ force = false } = {}) {
   }
 
   const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), volatileRuntime ? 35 : 50);
-  const commentsPerPost = volatileRuntime ? 0 : Number(sources.limits?.commentsPerPost || 4);
+  const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
+  const commentsPerPost = volatileRuntime
+    ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, 2)) : 0)
+    : configuredCommentsPerPost;
   const lookbackDays = Number(sources.lookbackDays || 3);
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const results = [];
@@ -1001,6 +1004,32 @@ function getRecentPosts(posts, hours = 72) {
   return (posts || []).filter((post) => !post.ignored && new Date(post.createdAt).getTime() >= cutoff);
 }
 
+function getRawLookbackCutoff(lookbackDays = 3) {
+  return Date.now() - Math.max(1, Number(lookbackDays || 3)) * 24 * 60 * 60 * 1000;
+}
+
+function pruneRawPostsToLookback(rawPosts, lookbackDays = 3) {
+  const cutoff = getRawLookbackCutoff(lookbackDays);
+  return (rawPosts || []).filter((item) => {
+    const createdAt = new Date(item.created_at_source || 0).getTime();
+    return Number.isFinite(createdAt) && createdAt >= cutoff;
+  });
+}
+
+function mergeRawPosts(existingRawPosts, incomingRawPosts, lookbackDays = 3) {
+  const merged = new Map();
+
+  for (const item of pruneRawPostsToLookback(existingRawPosts, lookbackDays)) {
+    merged.set(item.external_id, item);
+  }
+
+  for (const item of pruneRawPostsToLookback(incomingRawPosts, lookbackDays)) {
+    merged.set(item.external_id, item);
+  }
+
+  return [...merged.values()].sort((a, b) => new Date(b.created_at_source) - new Date(a.created_at_source));
+}
+
 function buildAlerts(issues) {
   const today = new Date().toISOString().slice(0, 10);
   return issues
@@ -1025,18 +1054,18 @@ function buildAlerts(issues) {
     }));
 }
 
-async function buildDataset({ force = false } = {}) {
+async function buildDataset({ force = false, rawPostsOverride = null, storeOverride = null, persist = true } = {}) {
   const state = getState();
   const sources = await readSources();
-  const store = await hydrateStateFromStore();
+  const store = storeOverride ? normalizeStoreShape(storeOverride) : await hydrateStateFromStore();
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
-  if (!force && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
+  if (!force && !rawPostsOverride && !storeOverride && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
     return state.cache.dataset;
   }
 
   const rules = getRules();
-  const rawPosts = await getRedditFeedback({ force });
+  const rawPosts = Array.isArray(rawPostsOverride) ? rawPostsOverride : await getRedditFeedback({ force });
   const reviewLabels = Array.isArray(store.review_labels) ? store.review_labels : [];
   const reviewMap = new Map(reviewLabels.map((item) => [item.postId, item]));
 
@@ -1240,34 +1269,54 @@ async function buildDataset({ force = false } = {}) {
     reviewActions: reviewLabels,
   };
 
-  const persistedStore = normalizeStoreShape({
-    ...store,
-    raw_posts: rawPosts,
-    analyzed_feedback: analysisItems,
-    meta: {
-      ...(store.meta || {}),
-      lastSyncAt: overview.lastSyncAt,
-      game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
-    },
-    risk_daily_snapshot: issues.map((issue) => ({
-      snapshot_date: new Date().toISOString().slice(0, 10),
-      topic_key: issue.key,
-      topic_label: issue.label,
-      negative_volume: issue.negativeCount,
-      negative_growth: issue.growth,
-      discussion_heat: issue.heat,
-      high_impact_count: posts.filter((item) => item.topic === issue.key && item.impact >= 0.65).length,
-      risk_score: issue.riskScore,
-      risk_level: issue.riskLevel,
-    })),
-    review_labels: reviewLabels,
-    alerts,
-    rule_config: rules,
-  });
-  await saveStore(persistedStore);
+  if (persist) {
+    const persistedStore = normalizeStoreShape({
+      ...store,
+      raw_posts: rawPosts,
+      analyzed_feedback: analysisItems,
+      meta: {
+        ...(store.meta || {}),
+        lastSyncAt: overview.lastSyncAt,
+        game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
+      },
+      risk_daily_snapshot: issues.map((issue) => ({
+        snapshot_date: new Date().toISOString().slice(0, 10),
+        topic_key: issue.key,
+        topic_label: issue.label,
+        negative_volume: issue.negativeCount,
+        negative_growth: issue.growth,
+        discussion_heat: issue.heat,
+        high_impact_count: posts.filter((item) => item.topic === issue.key && item.impact >= 0.65).length,
+        risk_score: issue.riskScore,
+        risk_level: issue.riskLevel,
+      })),
+      review_labels: reviewLabels,
+      alerts,
+      rule_config: rules,
+    });
+    await saveStore(persistedStore);
+  }
   state.cache.dataset = dataset;
   state.cache.datasetAt = Date.now();
   return dataset;
+}
+
+async function syncLiveDataset() {
+  const sources = await readSources();
+  const lookbackDays = Number(sources.lookbackDays || 3);
+  const store = await hydrateStateFromStore();
+  const existingRawPosts = Array.isArray(store.raw_posts) ? store.raw_posts : [];
+
+  forceRefresh();
+  const liveRawPosts = await getRedditFeedback({ force: true });
+  const mergedRawPosts = mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays);
+
+  return buildDataset({
+    force: false,
+    rawPostsOverride: mergedRawPosts,
+    storeOverride: store,
+    persist: true,
+  });
 }
 
 async function setRules(payload) {
@@ -1384,4 +1433,5 @@ module.exports = {
   readSources,
   saveReviewLabel,
   setRules,
+  syncLiveDataset,
 };

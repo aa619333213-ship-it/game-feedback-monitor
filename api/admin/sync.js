@@ -1,4 +1,4 @@
-const { buildDataset, forceRefresh } = require("../_lib/monitor");
+const { syncLiveDataset } = require("../_lib/monitor");
 const { methodNotAllowed, sendJson } = require("../_lib/response");
 
 module.exports = async function handler(req, res) {
@@ -6,8 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return methodNotAllowed(res);
 
   try {
-    forceRefresh();
-    const dataset = await buildDataset({ force: true });
+    const dataset = await syncLiveDataset();
     return sendJson(res, 200, {
       ok: true,
       result: {

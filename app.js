@@ -176,18 +176,28 @@
   }
 
   async function renderAll() {
-    const response = await App.fetchApi("/api/dashboard");
-    const localDataset = readLocalDataset();
-    const datasetToUse = shouldUseLocalDataset(localDataset, response) ? localDataset : response;
+    let datasetToUse = null;
+
+    try {
+      datasetToUse = await App.fetchApi("/api/dashboard");
+      persistLocalDataset(datasetToUse);
+    } catch (error) {
+      datasetToUse = readLocalDataset();
+      if (!datasetToUse) {
+        throw error;
+      }
+    }
+
     renderOverview(datasetToUse.overview, datasetToUse.issues, datasetToUse.alerts);
     renderIssues(datasetToUse.issues);
     populateTopicFilter(datasetToUse.taxonomy);
-    state.syncedPostsPayload = null;
-    if (datasetToUse === localDataset && Array.isArray(localDataset.posts)) {
-      state.syncedPostsPayload = localDataset.posts;
+    state.syncedPostsPayload = Array.isArray(datasetToUse.posts) ? datasetToUse.posts : null;
+
+    if (state.syncedPostsPayload) {
       renderPosts(buildClientPostsPayload(state.syncedPostsPayload));
       return;
     }
+
     await safeRenderPosts();
   }
 
@@ -338,13 +348,6 @@
       if (!dataset || !dataset.overview || !Array.isArray(dataset.posts)) return;
       window.localStorage.setItem(LOCAL_DATASET_KEY, JSON.stringify(dataset));
     } catch {}
-  }
-
-  function shouldUseLocalDataset(localDataset, apiDataset) {
-    if (!localDataset || !localDataset.overview) return false;
-    const localSyncAt = new Date(localDataset.overview.lastSyncAt || 0).getTime();
-    const apiSyncAt = new Date(apiDataset && apiDataset.overview ? apiDataset.overview.lastSyncAt || 0 : 0).getTime();
-    return Number.isFinite(localSyncAt) && localSyncAt > apiSyncAt;
   }
 
   function buildClientPostsPayload(posts) {

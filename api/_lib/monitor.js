@@ -819,6 +819,13 @@ async function getRedditFeedback({ force = false } = {}) {
 
   const persistedRaw = Array.isArray(store.raw_posts) ? store.raw_posts : [];
   const lastSyncMs = store.meta?.lastSyncAt ? new Date(store.meta.lastSyncAt).getTime() : 0;
+
+  if (!force && isVolatileVercelRuntime() && persistedRaw.length) {
+    state.cache.raw = persistedRaw;
+    state.cache.rawAt = Date.now();
+    return persistedRaw;
+  }
+
   if (!force && persistedRaw.length && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();

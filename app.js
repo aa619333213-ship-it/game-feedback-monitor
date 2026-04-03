@@ -20,6 +20,8 @@
     syncedPostsPayload: null,
   };
 
+  const LOCAL_DATASET_KEY = "gfm-latest-dashboard-dataset";
+
   const els = {
     riskCard: document.getElementById("risk-card"),
     riskWeather: document.getElementById("risk-weather"),
@@ -175,10 +177,17 @@
 
   async function renderAll() {
     const response = await App.fetchApi("/api/dashboard");
-    renderOverview(response.overview, response.issues, response.alerts);
-    renderIssues(response.issues);
-    populateTopicFilter(response.taxonomy);
+    const localDataset = readLocalDataset();
+    const datasetToUse = shouldUseLocalDataset(localDataset, response) ? localDataset : response;
+    renderOverview(datasetToUse.overview, datasetToUse.issues, datasetToUse.alerts);
+    renderIssues(datasetToUse.issues);
+    populateTopicFilter(datasetToUse.taxonomy);
     state.syncedPostsPayload = null;
+    if (datasetToUse === localDataset && Array.isArray(localDataset.posts)) {
+      state.syncedPostsPayload = localDataset.posts;
+      renderPosts(buildClientPostsPayload(state.syncedPostsPayload));
+      return;
+    }
     await safeRenderPosts();
   }
 
@@ -305,11 +314,37 @@
   }
 
   function applyDashboardDataset(dataset) {
+    persistLocalDataset(dataset);
     renderOverview(dataset.overview, dataset.issues, dataset.alerts);
     renderIssues(dataset.issues);
     populateTopicFilter(dataset.taxonomy);
     state.syncedPostsPayload = Array.isArray(dataset.posts) ? dataset.posts : [];
     renderPosts(buildClientPostsPayload(state.syncedPostsPayload));
+  }
+
+  function readLocalDataset() {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_DATASET_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && parsed.overview && Array.isArray(parsed.posts) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function persistLocalDataset(dataset) {
+    try {
+      if (!dataset || !dataset.overview || !Array.isArray(dataset.posts)) return;
+      window.localStorage.setItem(LOCAL_DATASET_KEY, JSON.stringify(dataset));
+    } catch {}
+  }
+
+  function shouldUseLocalDataset(localDataset, apiDataset) {
+    if (!localDataset || !localDataset.overview) return false;
+    const localSyncAt = new Date(localDataset.overview.lastSyncAt || 0).getTime();
+    const apiSyncAt = new Date(apiDataset && apiDataset.overview ? apiDataset.overview.lastSyncAt || 0 : 0).getTime();
+    return Number.isFinite(localSyncAt) && localSyncAt > apiSyncAt;
   }
 
   function buildClientPostsPayload(posts) {

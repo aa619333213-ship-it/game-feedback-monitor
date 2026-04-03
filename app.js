@@ -8,7 +8,7 @@
     topic: "all",
     sentiment: "all",
     risk: "all",
-    contentType: "all",
+    contentType: "submission",
     sort: "time",
     page: 1,
     pageSize: 10,
@@ -54,6 +54,9 @@
   };
 
   async function init() {
+    if (els.contentTypeFilter) {
+      els.contentTypeFilter.value = state.contentType;
+    }
     bindEvents();
     try {
       await renderAll();

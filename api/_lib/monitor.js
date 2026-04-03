@@ -811,6 +811,7 @@ async function getRedditFeedback({ force = false } = {}) {
   const state = getState();
   const sources = await readSources();
   const store = await hydrateStateFromStore();
+  const volatileRuntime = isVolatileVercelRuntime();
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
   if (!force && state.cache.raw && Date.now() - state.cache.rawAt < ttlMs) {
@@ -832,8 +833,8 @@ async function getRedditFeedback({ force = false } = {}) {
     return persistedRaw;
   }
 
-  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), 50);
-  const commentsPerPost = Number(sources.limits?.commentsPerPost || 4);
+  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), volatileRuntime ? 35 : 50);
+  const commentsPerPost = volatileRuntime ? 0 : Number(sources.limits?.commentsPerPost || 4);
   const lookbackDays = Number(sources.lookbackDays || 3);
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const results = [];
@@ -844,7 +845,7 @@ async function getRedditFeedback({ force = false } = {}) {
       let reachedCutoff = false;
       let pageCount = 0;
 
-      while (!reachedCutoff && pageCount < 10) {
+      while (!reachedCutoff && pageCount < (volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after);
         const children = listing?.data?.children || [];
@@ -879,39 +880,41 @@ async function getRedditFeedback({ force = false } = {}) {
             combined_text: sanitizeText(`${postTitle} ${postBody}`),
           });
 
-          try {
-            const commentResponse = await fetchRedditComments(permalink, commentsPerPost);
-            const commentListing = commentResponse?.[1];
-            const commentChildren = commentListing?.data?.children || [];
-            let counter = 0;
+          if (commentsPerPost > 0) {
+            try {
+              const commentResponse = await fetchRedditComments(permalink, commentsPerPost);
+              const commentListing = commentResponse?.[1];
+              const commentChildren = commentListing?.data?.children || [];
+              let counter = 0;
 
-            for (const commentChild of commentChildren) {
-              if (commentChild.kind !== "t1" || counter >= commentsPerPost) continue;
-              const comment = commentChild.data;
-              if (!String(comment.body || "").trim()) continue;
-              const commentCreatedMs = Number(comment.created_utc || 0) * 1000;
-              if (commentCreatedMs < cutoffTs) continue;
+              for (const commentChild of commentChildren) {
+                if (commentChild.kind !== "t1" || counter >= commentsPerPost) continue;
+                const comment = commentChild.data;
+                if (!String(comment.body || "").trim()) continue;
+                const commentCreatedMs = Number(comment.created_utc || 0) * 1000;
+                if (commentCreatedMs < cutoffTs) continue;
 
-              counter += 1;
-              const commentBody = sanitizeText(comment.body);
-              results.push({
-                external_id: `t1_${comment.id}`,
-                parent_id: externalId,
-                platform: "reddit",
-                subreddit,
-                post_type: "comment",
-                title: postTitle,
-                body: commentBody,
-                author_name: sanitizeText(comment.author),
-                score: Number(comment.score || 0),
-                comments_count: 0,
-                post_url: `https://www.reddit.com${permalink}${comment.id}`,
-                created_at_source: new Date(commentCreatedMs).toISOString(),
-                combined_text: sanitizeText(`${postTitle} ${commentBody}`),
-              });
+                counter += 1;
+                const commentBody = sanitizeText(comment.body);
+                results.push({
+                  external_id: `t1_${comment.id}`,
+                  parent_id: externalId,
+                  platform: "reddit",
+                  subreddit,
+                  post_type: "comment",
+                  title: postTitle,
+                  body: commentBody,
+                  author_name: sanitizeText(comment.author),
+                  score: Number(comment.score || 0),
+                  comments_count: 0,
+                  post_url: `https://www.reddit.com${permalink}${comment.id}`,
+                  created_at_source: new Date(commentCreatedMs).toISOString(),
+                  combined_text: sanitizeText(`${postTitle} ${commentBody}`),
+                });
+              }
+            } catch (error) {
+              console.error("Failed to fetch comments", error);
             }
-          } catch (error) {
-            console.error("Failed to fetch comments", error);
           }
         }
 

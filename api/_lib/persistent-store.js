@@ -33,20 +33,55 @@ async function listBlobCandidates() {
     .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0));
 }
 
+async function fetchBlobJson(blob) {
+  const targets = [blob?.downloadUrl, blob?.url].filter(Boolean);
+
+  for (const target of targets) {
+    try {
+      const response = await fetch(target, {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+        },
+      });
+
+      if (response.ok) {
+        return response.json();
+      }
+
+      if (response.status === 401 || response.status === 403 || response.status === 404) {
+        continue;
+      }
+
+      throw new Error(`Failed to fetch persisted blob store: ${response.status}`);
+    } catch (error) {
+      if (/404|403|401/.test(String(error?.message || ""))) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return null;
+}
+
 async function readStoreFromBlob() {
   if (!hasBlobStorage()) return null;
-  const blobs = await listBlobCandidates();
-  if (!blobs.length) return null;
-  const response = await fetch(blobs[0].url, {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-    },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to fetch persisted blob store: ${response.status}`);
+  let blobs = [];
+  try {
+    blobs = await listBlobCandidates();
+  } catch (error) {
+    console.error("Failed to list persisted blob store", error);
+    return null;
   }
-  return response.json();
+  if (!blobs.length) return null;
+
+  for (const blob of blobs) {
+    const value = await fetchBlobJson(blob);
+    if (value) return value;
+  }
+
+  return null;
 }
 
 async function writeStoreToBlob(value) {
@@ -64,7 +99,12 @@ async function writeStoreToBlob(value) {
 
 async function seedBlobStoreIfNeeded() {
   if (!hasBlobStorage()) return null;
-  const existing = await readStoreFromBlob();
+  let existing = null;
+  try {
+    existing = await readStoreFromBlob();
+  } catch (error) {
+    console.error("Failed to read persisted blob store before seeding", error);
+  }
   if (existing) return existing;
   try {
     const seed = await readJsonFile(SEED_STORE_PATH);

@@ -975,6 +975,39 @@ input[type="checkbox"] {
   flex-wrap: wrap;
 }
 
+.radar-sync-meta {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 10px 32px 0;
+}
+
+.radar-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  color: #5b6b81;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.radar-sync-status.is-syncing {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.radar-sync-status.is-error {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #dc2626;
+}
+
 .radar-btn {
   display: inline-flex;
   align-items: center;
@@ -1670,6 +1703,10 @@ input[type="checkbox"] {
 
   .radar-content {
     padding: 18px;
+  }
+
+  .radar-sync-meta {
+    padding: 8px 18px 0;
   }
 
   .radar-stats-grid,

@@ -53,6 +53,7 @@
     postPagination: document.getElementById("post-pagination"),
     refreshButton: document.getElementById("refresh-button"),
     testAlertButton: document.getElementById("test-alert-button"),
+    syncStatus: document.getElementById("sync-status"),
   };
 
   async function init() {
@@ -86,15 +87,18 @@
 
     els.refreshButton.addEventListener("click", async () => {
       els.refreshButton.disabled = true;
+      setSyncStatus("正在抓取 Reddit 最新帖子并写入线上存储，可能需要约 1-2 分钟。", "syncing");
       els.refreshButton.querySelector("span:last-child").textContent = "正在同步 Reddit 实时数据";
       try {
         const syncResult = await App.fetchApi("/api/admin/sync", {}, "POST");
         if (syncResult && syncResult.ok && syncResult.dataset) {
           applyDashboardDataset(syncResult.dataset);
+          await renderAll();
           return;
         }
         throw new Error("sync failed");
       } catch (error) {
+        setSyncStatus(`同步失败：${error.message}`, "error");
         renderLoadError(error);
       } finally {
         els.refreshButton.disabled = false;
@@ -260,6 +264,30 @@
     }
     renderWeatherFx(weatherLevel);
     renderAlertSummary(issues, alerts);
+    setSyncStatus(buildSyncStatus(overview), "idle");
+  }
+
+  function buildSyncStatus(overview) {
+    const lastSync = overview && overview.lastSyncAt ? App.formatDateTime(overview.lastSyncAt) : "暂无";
+    const viewLabel =
+      state.contentType === "submission"
+        ? "帖子"
+        : state.contentType === "comment"
+          ? "评论"
+          : "全部内容";
+    return `最近同步：${lastSync} · 当前视图：${viewLabel}`;
+  }
+
+  function setSyncStatus(message, tone = "idle") {
+    if (!els.syncStatus) return;
+    els.syncStatus.textContent = message;
+    els.syncStatus.className = "radar-sync-status";
+    if (tone === "syncing") {
+      els.syncStatus.classList.add("is-syncing");
+    }
+    if (tone === "error") {
+      els.syncStatus.classList.add("is-error");
+    }
   }
 
   function buildHeadlineSummary(overview, issues) {

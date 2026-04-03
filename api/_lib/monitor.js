@@ -751,6 +751,21 @@ function buildRedditListingUrls(subreddit, postsPerPage, after) {
 
 async function fetchRedditListing(subreddit, postsPerPage, after, options = {}) {
   let lastError = null;
+  const rssUrl = `https://www.reddit.com/r/${subreddit}/new/.rss?limit=${postsPerPage}&sort=new&_=${Date.now()}`;
+
+  if (options.preferRss) {
+    try {
+      const xml = await fetchText(rssUrl, options);
+      return normalizeRssListing(subreddit, xml);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (options.skipJsonFallback) {
+      throw lastError || new Error(`Failed to fetch Reddit listing for r/${subreddit}`);
+    }
+  }
+
   for (const url of buildRedditListingUrls(subreddit, postsPerPage, after)) {
     try {
       return await fetchJson(url, options);
@@ -759,7 +774,6 @@ async function fetchRedditListing(subreddit, postsPerPage, after, options = {}) 
     }
   }
 
-  const rssUrl = `https://www.reddit.com/r/${subreddit}/new/.rss?limit=${postsPerPage}&sort=new&_=${Date.now()}`;
   try {
     const xml = await fetchText(rssUrl, options);
     return normalizeRssListing(subreddit, xml);
@@ -792,6 +806,21 @@ function buildRedditCommentUrls(permalink, commentsPerPost) {
 
 async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   let lastError = null;
+  const rssUrl = `https://www.reddit.com${permalink}.rss?limit=${commentsPerPost}&sort=new&_=${Date.now()}`;
+
+  if (options.preferRss) {
+    try {
+      const xml = await fetchText(rssUrl, options);
+      return normalizeRssComments(xml, commentsPerPost, "", permalink);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (options.skipJsonFallback) {
+      throw lastError || new Error(`Failed to fetch Reddit comments for ${permalink}`);
+    }
+  }
+
   for (const url of buildRedditCommentUrls(permalink, commentsPerPost)) {
     try {
       return await fetchJson(url, options);
@@ -801,7 +830,6 @@ async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   }
 
   try {
-    const rssUrl = `https://www.reddit.com${permalink}.rss?limit=${commentsPerPost}&sort=new&_=${Date.now()}`;
     const xml = await fetchText(rssUrl, options);
     return normalizeRssComments(xml, commentsPerPost, "", permalink);
   } catch (error) {
@@ -838,7 +866,7 @@ async function getRedditFeedback({ force = false } = {}) {
   }
 
   const liveSyncMode = volatileRuntime && force;
-  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 15 : volatileRuntime ? 35 : 50);
+  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 8 : volatileRuntime ? 35 : 50);
   const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
   const commentsPerPost = volatileRuntime
     ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, liveSyncMode ? 1 : 2)) : 0)
@@ -846,19 +874,21 @@ async function getRedditFeedback({ force = false } = {}) {
   const lookbackDays = Number(sources.lookbackDays || 3);
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const requestOptions = liveSyncMode
-    ? { timeoutMs: 5000, maxAttempts: 1 }
+    ? { timeoutMs: 1800, maxAttempts: 1, preferRss: true, skipJsonFallback: true }
     : volatileRuntime
       ? { timeoutMs: 8000, maxAttempts: 2 }
       : {};
   const results = [];
+  const maxCommentFetchPosts = liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
 
   try {
     for (const subreddit of sources.subreddits || []) {
       let after = null;
       let reachedCutoff = false;
       let pageCount = 0;
+      let commentFetchCount = 0;
 
-      while (!reachedCutoff && pageCount < (liveSyncMode ? 3 : volatileRuntime ? 6 : 10)) {
+      while (!reachedCutoff && pageCount < (liveSyncMode ? 1 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after, requestOptions);
         const children = listing?.data?.children || [];
@@ -893,8 +923,9 @@ async function getRedditFeedback({ force = false } = {}) {
             combined_text: sanitizeText(`${postTitle} ${postBody}`),
           });
 
-          if (commentsPerPost > 0) {
+          if (commentsPerPost > 0 && commentFetchCount < maxCommentFetchPosts) {
             try {
+              commentFetchCount += 1;
               const commentResponse = await fetchRedditComments(permalink, commentsPerPost, requestOptions);
               const commentListing = commentResponse?.[1];
               const commentChildren = commentListing?.data?.children || [];

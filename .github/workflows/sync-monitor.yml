@@ -5,10 +5,37 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger production sync
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
         run: |
-          curl --fail --silent --show-error -X POST "https://survellianceplatform.vercel.app/api/admin/sync"
+          npm ci
+
+      - name: Refresh store seed
+        run: |
+          node ./scripts/update-seed-from-reddit.js
+
+      - name: Commit updated seed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/store.seed.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: refresh monitor seed data"
+          git push

@@ -17,6 +17,7 @@
     expandedIssueRelated: {},
     issueRelatedCache: {},
     showAllIssues: false,
+    syncedPostsPayload: null,
   };
 
   const els = {
@@ -83,8 +84,8 @@
       els.refreshButton.querySelector("span:last-child").textContent = "正在同步 Reddit 实时数据";
       try {
         const syncResult = await App.fetchApi("/api/admin/sync", {}, "POST");
-        if (syncResult && syncResult.ok) {
-          window.location.reload();
+        if (syncResult && syncResult.ok && syncResult.dataset) {
+          applyDashboardDataset(syncResult.dataset);
           return;
         }
         throw new Error("sync failed");
@@ -174,11 +175,16 @@
     renderOverview(response.overview, response.issues, response.alerts);
     renderIssues(response.issues);
     populateTopicFilter(response.taxonomy);
+    state.syncedPostsPayload = null;
     await safeRenderPosts();
   }
 
   async function safeRenderPosts() {
     try {
+      if (state.syncedPostsPayload) {
+        renderPosts(buildClientPostsPayload(state.syncedPostsPayload));
+        return;
+      }
       const query = new URLSearchParams({
         topic: state.topic,
         sentiment: state.sentiment,
@@ -293,6 +299,46 @@
         els.allIssueList.innerHTML = "";
       }
     }
+  }
+
+  function applyDashboardDataset(dataset) {
+    renderOverview(dataset.overview, dataset.issues, dataset.alerts);
+    renderIssues(dataset.issues);
+    populateTopicFilter(dataset.taxonomy);
+    state.syncedPostsPayload = Array.isArray(dataset.posts) ? dataset.posts : [];
+    renderPosts(buildClientPostsPayload(state.syncedPostsPayload));
+  }
+
+  function buildClientPostsPayload(posts) {
+    const filtered = (posts || [])
+      .filter((item) => {
+        const createdAt = new Date(item.createdAt).getTime();
+        return Number.isFinite(createdAt) && createdAt >= (Date.now() - 72 * 60 * 60 * 1000);
+      })
+      .filter((item) => state.topic === "all" || item.topic === state.topic)
+      .filter((item) => state.sentiment === "all" || item.sentiment === state.sentiment)
+      .filter((item) => state.risk === "all" || item.riskLevel === state.risk)
+      .filter((item) => state.contentType === "all" || item.postType === state.contentType)
+      .sort((a, b) => {
+        if (state.sort === "heat") {
+          return (b.score + b.commentsCount * 3) - (a.score + a.commentsCount * 3) || new Date(b.createdAt) - new Date(a.createdAt);
+        }
+        return new Date(b.createdAt) - new Date(a.createdAt) || (b.score + b.commentsCount * 3) - (a.score + a.commentsCount * 3);
+      });
+
+    const total = filtered.length;
+    const pageSize = state.pageSize;
+    const totalPages = total <= 0 ? 1 : Math.ceil(total / pageSize);
+    state.page = Math.min(state.page, totalPages);
+    const start = (state.page - 1) * pageSize;
+
+    return {
+      items: filtered.slice(start, start + pageSize),
+      page: state.page,
+      pageSize,
+      total,
+      totalPages,
+    };
   }
 
   function renderIssueCard(item, index) {

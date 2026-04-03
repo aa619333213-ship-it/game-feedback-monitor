@@ -14,6 +14,7 @@ module.exports = async function handler(req, res) {
         syncedAt: dataset.overview.lastSyncAt,
         ingested: dataset.posts.length,
       },
+      dataset,
     });
   } catch (error) {
     console.error(error);

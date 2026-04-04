@@ -1,6 +1,36 @@
 {
   "raw_posts": [
     {
+      "external_id": "t1_oe8u6e5",
+      "parent_id": "t3_1s9lajd",
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "comment",
+      "title": "I need a good kingdom to migrate to please message me thanks..",
+      "body": "Come to 2618 New leadership we are a kd in rebuild",
+      "author_name": "/u/NoDetective5978",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1s9lajd/i_need_a_good_kingdom_to_migrate_to_please/oe8u6e5",
+      "created_at_source": "2026-04-04T12:35:17.000Z",
+      "combined_text": "I need a good kingdom to migrate to please message me thanks.. Come to 2618 New leadership we are a kd in rebuild"
+    },
+    {
+      "external_id": "t1_oe8qvvt",
+      "parent_id": "t3_1sb0wpx",
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "comment",
+      "title": "King announcement & crash out 3884",
+      "body": "Sounds like gonna be Selling kd",
+      "author_name": "/u/Lline22",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sb0wpx/king_announcement_crash_out_3884/oe8qvvt",
+      "created_at_source": "2026-04-04T12:13:35.000Z",
+      "combined_text": "King announcement & crash out 3884 Sounds like gonna be Selling kd"
+    },
+    {
       "external_id": "t3_1sc6zc7",
       "parent_id": null,
       "platform": "reddit",
@@ -239,21 +269,6 @@
       "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sc2jdz/prekvk1_question/prekvk1_question",
       "created_at_source": "2026-04-04T07:10:09.000Z",
       "combined_text": "Pre-Kvk1 Question I don&#39;t know what to do next, Minamoto is 3211 but I don&#39;t wanna invest more into him. Should I get another rgathering commander to 37 or start investing in sun tzu? &#32; submitted by &#32; /u/Parking-Safe-9332 [link] &#32; [comments]"
-    },
-    {
-      "external_id": "t1_oe7oxwi",
-      "parent_id": "t3_1sb0wpx",
-      "platform": "reddit",
-      "subreddit": "RiseofKingdoms",
-      "post_type": "comment",
-      "title": "King announcement & crash out 3884",
-      "body": "Nono hes serious :) https://imgur.com/a/iedLrbI",
-      "author_name": "/u/Acceptable-Onion2956",
-      "score": 0,
-      "comments_count": 0,
-      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sb0wpx/king_announcement_crash_out_3884/oe7oxwi",
-      "created_at_source": "2026-04-04T06:44:51.000Z",
-      "combined_text": "King announcement & crash out 3884 Nono hes serious :) https://imgur.com/a/iedLrbI"
     },
     {
       "external_id": "t1_oe7o7yz",
@@ -1064,21 +1079,6 @@
       "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1sb99n0/where_do_i_go_from_here_mid_first_kvk1/oe20lx6",
       "created_at_source": "2026-04-03T11:48:57.000Z",
       "combined_text": "Where do I go from here? (mid first KVK1) restart"
-    },
-    {
-      "external_id": "t1_oe1yeyn",
-      "parent_id": "t3_1s9lajd",
-      "platform": "reddit",
-      "subreddit": "RiseofKingdoms",
-      "post_type": "comment",
-      "title": "I need a good kingdom to migrate to please message me thanks..",
-      "body": "whats your previous kvk stats?",
-      "author_name": "/u/AlvarpZ",
-      "score": 0,
-      "comments_count": 0,
-      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1s9lajd/i_need_a_good_kingdom_to_migrate_to_please/oe1yeyn",
-      "created_at_source": "2026-04-03T11:33:44.000Z",
-      "combined_text": "I need a good kingdom to migrate to please message me thanks.. whats your previous kvk stats?"
     },
     {
       "external_id": "t1_oe1xat5",
@@ -2298,6 +2298,30 @@
   ],
   "analyzed_feedback": [
     {
+      "external_id": "t1_oe8u6e5",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "positive",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
+      "external_id": "t1_oe8qvvt",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "neutral",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
       "external_id": "t3_1sc6zc7",
       "topic_key": "other",
       "topic_match_alias": null,
@@ -2479,18 +2503,6 @@
     },
     {
       "external_id": "t1_prekvk1_question",
-      "topic_key": "other",
-      "topic_match_alias": null,
-      "sentiment": "neutral",
-      "impact": 0,
-      "root_cause_summary": "",
-      "action_suggestion": "",
-      "risk_score": 25,
-      "risk_level": "green",
-      "ignored": false
-    },
-    {
-      "external_id": "t1_oe7oxwi",
       "topic_key": "other",
       "topic_match_alias": null,
       "sentiment": "neutral",
@@ -3142,18 +3154,6 @@
       "topic_key": "other",
       "topic_match_alias": null,
       "sentiment": "neutral",
-      "impact": 0,
-      "root_cause_summary": "",
-      "action_suggestion": "",
-      "risk_score": 25,
-      "risk_level": "green",
-      "ignored": false
-    },
-    {
-      "external_id": "t1_oe1yeyn",
-      "topic_key": "other",
-      "topic_match_alias": null,
-      "sentiment": "positive",
       "impact": 0,
       "root_cause_summary": "",
       "action_suggestion": "",

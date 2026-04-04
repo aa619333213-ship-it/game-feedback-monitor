@@ -240,7 +240,11 @@
       typeof overview.needleAngle === "number"
         ? overview.needleAngle
         : -90 + Math.max(0, Math.min(100, overview.riskScore || 0)) * 1.8;
-    const totalPosts = (overview.redRiskCount || 0) + (overview.orangeRiskCount || 0) + (overview.greenRiskCount || 0);
+    const totalPosts = Number.isFinite(overview.totalSubmissions)
+      ? overview.totalSubmissions
+      : Number.isFinite(overview.totalPosts)
+        ? overview.totalPosts
+        : (overview.redRiskCount || 0) + (overview.orangeRiskCount || 0) + (overview.greenRiskCount || 0);
 
     els.gameName.textContent = "万国觉醒";
     els.sourceSummary.textContent = sourceList.join(" + ");

@@ -583,8 +583,29 @@
 
   function relativeDate(dateString) {
     const date = new Date(dateString);
-    const hours = Math.max(1, Math.round((Date.now() - date.getTime()) / 3600000));
-    return `${hours} 小时前`;
+    const diffMs = Date.now() - date.getTime();
+    if (!Number.isFinite(diffMs) || diffMs <= 0) {
+      return "刚刚";
+    }
+
+    const totalMinutes = Math.max(1, Math.floor(diffMs / 60000));
+    if (totalMinutes < 60) {
+      return `${totalMinutes}分钟前`;
+    }
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours < 24) {
+      return minutes > 0 ? `${hours}小时${minutes}分钟前` : `${hours}小时前`;
+    }
+
+    const days = Math.floor(hours / 24);
+    const remainHours = hours % 24;
+    if (remainHours > 0) {
+      return `${days}天${remainHours}小时前`;
+    }
+
+    return `${days}天前`;
   }
 
   window.GameFeedbackMonitor = {

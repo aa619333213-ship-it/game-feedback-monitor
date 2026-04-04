@@ -1241,6 +1241,8 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
     .filter(Boolean);
 
   const recentPosts = getRecentPosts(posts, 72);
+  const recentSubmissions = recentPosts.filter((item) => item.postType === "submission");
+  const recentComments = recentPosts.filter((item) => item.postType === "comment");
   const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
   const baselinePosts = recentPosts.filter((item) => new Date(item.createdAt).getTime() < cutoff24h);
   const overviewSummary = getWeightedRiskSummary(recentPosts);
@@ -1272,6 +1274,9 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
     discussionHeat: overviewSummary.discussionHeat,
     growthRate: overviewGrowthRate,
     alertsCount: alerts.length,
+    totalPosts: recentPosts.length,
+    totalSubmissions: recentSubmissions.length,
+    totalComments: recentComments.length,
     topTopic: topIssue,
     executiveSummary: topIssue
       ? `${topIssue.label} is the biggest live risk source in the last 72 hours.`

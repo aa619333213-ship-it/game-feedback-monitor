@@ -240,11 +240,12 @@
       typeof overview.needleAngle === "number"
         ? overview.needleAngle
         : -90 + Math.max(0, Math.min(100, overview.riskScore || 0)) * 1.8;
-    const totalPosts = Number.isFinite(overview.totalSubmissions)
+    const totalSubmissions = Number.isFinite(overview.totalSubmissions)
       ? overview.totalSubmissions
       : Number.isFinite(overview.totalPosts)
         ? overview.totalPosts
         : (overview.redRiskCount || 0) + (overview.orangeRiskCount || 0) + (overview.greenRiskCount || 0);
+    const totalComments = Number.isFinite(overview.totalComments) ? overview.totalComments : 0;
 
     els.gameName.textContent = "万国觉醒";
     els.sourceSummary.textContent = sourceList.join(" + ");
@@ -257,7 +258,13 @@
     els.statChangeScore.textContent = `${Math.abs(Math.round((overview.growthRate || 0) * 100))}%`;
     els.statChangeIcon.textContent = (overview.growthRate || 0) <= 0 ? "trending_up" : "trending_down";
     els.statChangeIcon.className = `material-symbols-outlined ${(overview.growthRate || 0) <= 0 ? "radar-stat-positive" : "radar-stat-danger"}`;
-    els.statPostCount.textContent = App.formatNumber(totalPosts);
+    els.statPostCount.textContent = `${App.formatNumber(totalSubmissions)} / ${App.formatNumber(totalComments)}`;
+    if (els.statPostCount.previousElementSibling) {
+      els.statPostCount.previousElementSibling.textContent = "帖子 / 评论";
+    }
+    if (els.statPostCount.nextElementSibling) {
+      els.statPostCount.nextElementSibling.textContent = "过去72h";
+    }
     els.statAlertCount.textContent = overview.alertsCount || 0;
     els.statAlertCopy.textContent = (overview.alertsCount || 0) > 0 ? "需处理" : "已稳定";
     els.statAlertCopy.className = (overview.alertsCount || 0) > 0 ? "radar-stat-danger" : "radar-stat-positive";

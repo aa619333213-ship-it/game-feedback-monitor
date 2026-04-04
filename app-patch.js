@@ -1,4 +1,22 @@
 (function () {
+  const LATEST_OVERVIEW_KEY = "gfm-last-sync-overview";
+
+  function readLatestOverview() {
+    try {
+      const raw = window.localStorage.getItem(LATEST_OVERVIEW_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveLatestOverview(overview) {
+    if (!overview) return;
+    try {
+      window.localStorage.setItem(LATEST_OVERVIEW_KEY, JSON.stringify(overview));
+    } catch {}
+  }
+
   function setText(selector, text) {
     const element = document.querySelector(selector);
     if (element) {
@@ -41,7 +59,13 @@
     if (!window.GameFeedbackMonitor) return;
     try {
       const dashboard = await window.GameFeedbackMonitor.fetchApi("/api/dashboard");
-      updateSyncStatus(dashboard && dashboard.overview ? dashboard.overview : null);
+      const remoteOverview = dashboard && dashboard.overview ? dashboard.overview : null;
+      const localOverview = readLatestOverview();
+      const preferredOverview =
+        localOverview && remoteOverview
+          ? (new Date(localOverview.lastSyncAt || 0).getTime() > new Date(remoteOverview.lastSyncAt || 0).getTime() ? localOverview : remoteOverview)
+          : (localOverview || remoteOverview);
+      updateSyncStatus(preferredOverview);
       updateStatLabels();
     } catch {}
   }
@@ -73,6 +97,7 @@
           throw new Error("同步结果无效");
         }
 
+        saveLatestOverview(result.dataset.overview);
         updateSyncStatus(result.dataset.overview);
         window.setTimeout(() => {
           window.location.reload();
@@ -95,6 +120,7 @@
   function initPatch() {
     setText("title", "海外玩家反馈监控");
     updateStatLabels();
+    updateSyncStatus(readLatestOverview());
     replaceRefreshButton();
     refreshOverviewStatus();
     window.setTimeout(updateStatLabels, 800);

@@ -40,6 +40,7 @@ async function fetchBlobJson(blob) {
     try {
       const response = await fetch(target, {
         cache: "no-store",
+        signal: AbortSignal.timeout(8000),
         headers: {
           Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
         },
@@ -123,7 +124,10 @@ async function readPersistentStore() {
 
   if (isVercelRuntime()) {
     try {
-      const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
       if (response.ok) {
         return response.json();
       }

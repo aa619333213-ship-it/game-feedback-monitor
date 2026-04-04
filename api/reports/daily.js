@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") return methodNotAllowed(res);
 
   try {
-    const dataset = await buildDataset();
+    const dataset = await buildDataset({ persist: false });
     return sendJson(res, 200, dataset.report);
   } catch (error) {
     console.error(error);

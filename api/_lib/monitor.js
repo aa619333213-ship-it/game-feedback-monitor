@@ -1095,7 +1095,7 @@ function buildAlerts(issues) {
     }));
 }
 
-async function buildDataset({ force = false, rawPostsOverride = null, storeOverride = null, persist = true } = {}) {
+async function buildDataset({ force = false, rawPostsOverride = null, storeOverride = null, persist = true, lastSyncAtOverride = null } = {}) {
   const state = getState();
   const sources = await readSources();
   const store = storeOverride ? normalizeStoreShape(storeOverride) : await hydrateStateFromStore();
@@ -1253,6 +1253,8 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
   const overviewRiskLevel = getWeatherLevelFromScore(overviewScore);
   const alerts = buildAlerts(issues);
 
+  const lastSyncAt = lastSyncAtOverride || store.meta?.lastSyncAt || new Date().toISOString();
+
   const overview = {
     game: sources.game?.name || "Game",
     sources: (sources.subreddits || []).map((item) => `r/${item}`),
@@ -1274,7 +1276,7 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
     executiveSummary: topIssue
       ? `${topIssue.label} is the biggest live risk source in the last 72 hours.`
       : "No major live risk is visible yet.",
-    lastSyncAt: new Date().toISOString(),
+    lastSyncAt,
   };
 
   const report = {
@@ -1317,7 +1319,7 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
       analyzed_feedback: analysisItems,
       meta: {
         ...(store.meta || {}),
-        lastSyncAt: overview.lastSyncAt,
+        lastSyncAt,
         game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
       },
       risk_daily_snapshot: issues.map((issue) => ({
@@ -1347,6 +1349,7 @@ async function syncLiveDataset() {
   const lookbackDays = Number(sources.lookbackDays || 3);
   const store = await hydrateStateFromStore();
   const existingRawPosts = Array.isArray(store.raw_posts) ? store.raw_posts : [];
+  const syncedAt = new Date().toISOString();
 
   forceRefresh();
   const liveRawPosts = await getRedditFeedback({ force: true });
@@ -1357,6 +1360,7 @@ async function syncLiveDataset() {
     rawPostsOverride: mergedRawPosts,
     storeOverride: store,
     persist: true,
+    lastSyncAtOverride: syncedAt,
   });
 }
 
@@ -1427,7 +1431,7 @@ function forceRefresh() {
 }
 
 async function getPostsResponse(query = {}) {
-  const dataset = await buildDataset();
+  const dataset = await buildDataset({ persist: false });
   const topic = query.topic || "all";
   const sentiment = query.sentiment || "all";
   const risk = query.risk || "all";

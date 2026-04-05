@@ -122,6 +122,14 @@ async function readPersistentStore() {
     if (blobStore) return blobStore;
   }
 
+  try {
+    return await readJsonFile(LOCAL_STORE_PATH);
+  } catch {}
+
+  try {
+    return await readJsonFile(SEED_STORE_PATH);
+  } catch {}
+
   if (isVercelRuntime()) {
     try {
       const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, {
@@ -133,14 +141,6 @@ async function readPersistentStore() {
       }
     } catch {}
   }
-
-  try {
-    return await readJsonFile(LOCAL_STORE_PATH);
-  } catch {}
-
-  try {
-    return await readJsonFile(SEED_STORE_PATH);
-  } catch {}
 
   return null;
 }

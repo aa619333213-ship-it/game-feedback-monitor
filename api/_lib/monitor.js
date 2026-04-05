@@ -871,6 +871,13 @@ async function getRedditFeedback({ force = false } = {}) {
     return persistedRaw;
   }
 
+  if (!force && isVolatileVercelRuntime() && !persistedRaw.length) {
+    const fallback = getFallbackRawPosts();
+    state.cache.raw = fallback;
+    state.cache.rawAt = Date.now();
+    return fallback;
+  }
+
   if (!force && persistedRaw.length && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();

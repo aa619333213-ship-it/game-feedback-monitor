@@ -5,6 +5,8 @@ const { hasBlobStorage, readPersistentStore, writePersistentStore } = require(".
 const ROOT = path.resolve(__dirname, "..", "..");
 const SOURCES_PATH = path.join(ROOT, "data", "sources.json");
 const STORE_PATH = path.join(ROOT, "data", "store.json");
+const REDDIT_USER_AGENT =
+  "ShilongRadarBot/1.0 (by /u/aa619333213-ship-it; +https://shilongradar.fun)";
 
 const TOPIC_FOCUS = {
   matchmaking: "\u5339\u914d\u516c\u5e73\u6027\u548c\u5bf9\u5c40\u8d28\u91cf",
@@ -558,10 +560,11 @@ async function fetchJson(url, options = {}) {
       const response = await fetch(url, {
         cache: "no-store",
         headers: {
-          "User-Agent": "GameFeedbackMonitor/1.0 (Vercel)",
+          "User-Agent": REDDIT_USER_AGENT,
           Accept: "application/json",
           "Cache-Control": "no-cache, no-store, max-age=0",
           Pragma: "no-cache",
+          Referer: "https://shilongradar.fun/",
         },
         signal: controller.signal,
       });
@@ -592,10 +595,11 @@ async function fetchText(url, options = {}) {
       const response = await fetch(url, {
         cache: "no-store",
         headers: {
-          "User-Agent": "GameFeedbackMonitor/1.0 (Vercel)",
+          "User-Agent": REDDIT_USER_AGENT,
           Accept: "application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8",
           "Cache-Control": "no-cache, no-store, max-age=0",
           Pragma: "no-cache",
+          Referer: "https://shilongradar.fun/",
         },
         signal: controller.signal,
       });

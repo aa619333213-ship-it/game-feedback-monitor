@@ -738,6 +738,8 @@ function buildRedditListingUrls(subreddit, postsPerPage, after) {
     `https://www.reddit.com/r/${subreddit}/new/.json`,
     `https://api.reddit.com/r/${subreddit}/new`,
     `https://old.reddit.com/r/${subreddit}/new/.json`,
+    `https://www.reddit.com/r/${subreddit}/search.json`,
+    `https://old.reddit.com/r/${subreddit}/search/.json`,
   ];
 
   return candidates.map((baseUrl) => {
@@ -746,6 +748,12 @@ function buildRedditListingUrls(subreddit, postsPerPage, after) {
     url.searchParams.set("raw_json", "1");
     url.searchParams.set("sort", "new");
     url.searchParams.set("_", nonce);
+    if (baseUrl.includes("/search")) {
+      url.searchParams.set("restrict_sr", "on");
+      url.searchParams.set("type", "link");
+      url.searchParams.set("t", "week");
+      url.searchParams.set("q", `subreddit:${subreddit}`);
+    }
     if (after) {
       url.searchParams.set("after", after);
     }

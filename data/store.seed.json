@@ -1,6 +1,21 @@
 {
   "raw_posts": [
     {
+      "external_id": "t1_oeduqpp",
+      "parent_id": "t3_1scmfko",
+      "platform": "reddit",
+      "subreddit": "RiseofKingdoms",
+      "post_type": "comment",
+      "title": "Consejos?",
+      "body": "Pre kvk 1",
+      "author_name": "/u/RonaldMcDonaldMexa",
+      "score": 0,
+      "comments_count": 0,
+      "post_url": "https://www.reddit.com/r/RiseofKingdoms/comments/1scmfko/consejos/oeduqpp",
+      "created_at_source": "2026-04-05T05:21:04.000Z",
+      "combined_text": "Consejos? Pre kvk 1"
+    },
+    {
       "external_id": "t1_oedfej8",
       "parent_id": "t3_1scj4ie",
       "platform": "reddit",
@@ -2058,6 +2073,18 @@
   ],
   "analyzed_feedback": [
     {
+      "external_id": "t1_oeduqpp",
+      "topic_key": "other",
+      "topic_match_alias": null,
+      "sentiment": "neutral",
+      "impact": 0,
+      "root_cause_summary": "",
+      "action_suggestion": "",
+      "risk_score": 25,
+      "risk_level": "green",
+      "ignored": false
+    },
+    {
       "external_id": "t1_oedfej8",
       "topic_key": "other",
       "topic_match_alias": null,
@@ -3734,7 +3761,7 @@
       "topic_key": "economy",
       "topic_label": "Economy",
       "negative_volume": 0,
-      "negative_growth": -0.33,
+      "negative_growth": -0.75,
       "discussion_heat": 0,
       "high_impact_count": 0,
       "risk_score": 25,

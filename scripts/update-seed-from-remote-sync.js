@@ -28,6 +28,7 @@ function toStore(dataset) {
   return {
     raw_posts: Array.isArray(dataset.posts) ? dataset.posts.map(toRawPost) : [],
     analyzed_feedback: [],
+    precomputed_dataset: dataset,
     meta: {
       lastSyncAt: dataset.overview?.lastSyncAt || new Date().toISOString(),
       game: dataset.overview?.game || "Rise of Kingdoms",

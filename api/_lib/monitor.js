@@ -58,6 +58,7 @@ function createEmptyStore() {
   return {
     raw_posts: [],
     analyzed_feedback: [],
+    precomputed_dataset: null,
     meta: {
       lastSyncAt: null,
       game: "Rise of Kingdoms",
@@ -77,6 +78,7 @@ function normalizeStoreShape(store) {
     ...base,
     raw_posts: Array.isArray(base.raw_posts) ? base.raw_posts : [],
     analyzed_feedback: Array.isArray(base.analyzed_feedback) ? base.analyzed_feedback : [],
+    precomputed_dataset: base.precomputed_dataset && typeof base.precomputed_dataset === "object" ? base.precomputed_dataset : null,
     risk_daily_snapshot: Array.isArray(base.risk_daily_snapshot) ? base.risk_daily_snapshot : [],
     review_labels: Array.isArray(base.review_labels) ? base.review_labels : [],
     alerts: Array.isArray(base.alerts) ? base.alerts : [],
@@ -1124,6 +1126,12 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
     return state.cache.dataset;
   }
 
+  if (!force && !rawPostsOverride && store.precomputed_dataset && typeof store.precomputed_dataset === "object") {
+    state.cache.dataset = store.precomputed_dataset;
+    state.cache.datasetAt = Date.now();
+    return store.precomputed_dataset;
+  }
+
   const rules = getRules();
   const rawPosts = Array.isArray(rawPostsOverride) ? rawPostsOverride : await getRedditFeedback({ force });
   const reviewLabels = Array.isArray(store.review_labels) ? store.review_labels : [];
@@ -1341,6 +1349,7 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
       ...store,
       raw_posts: rawPosts,
       analyzed_feedback: analysisItems,
+      precomputed_dataset: dataset,
       meta: {
         ...(store.meta || {}),
         lastSyncAt,

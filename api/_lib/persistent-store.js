@@ -6,7 +6,7 @@ const LOCAL_STORE_PATH = path.join(ROOT, "data", "store.json");
 const SEED_STORE_PATH = path.join(ROOT, "data", "store.seed.json");
 const STORE_BLOB_PATH = "game-feedback-monitor/store.json";
 const REMOTE_SEED_URL =
-  "https://raw.githubusercontent.com/aa619333213-ship-it/game-feedback-monitor/main/data/store.seed.json";
+  "https://raw.githubusercontent.com/aa619333213-ship-it/game-feedback-monitor/monitor-data/data/store.seed.json";
 
 function isVercelRuntime() {
   return Boolean(process.env.VERCEL);
@@ -14,6 +14,17 @@ function isVercelRuntime() {
 
 function hasBlobStorage() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+function getRemoteSeedCache() {
+  if (!globalThis.__GFM_REMOTE_SEED_CACHE) {
+    globalThis.__GFM_REMOTE_SEED_CACHE = {
+      value: null,
+      at: 0,
+    };
+  }
+
+  return globalThis.__GFM_REMOTE_SEED_CACHE;
 }
 
 async function readJsonFile(filePath) {
@@ -122,6 +133,26 @@ async function readPersistentStore() {
     if (blobStore) return blobStore;
   }
 
+  if (isVercelRuntime()) {
+    const cache = getRemoteSeedCache();
+    if (cache.value && Date.now() - cache.at < 5 * 60 * 1000) {
+      return cache.value;
+    }
+
+    try {
+      const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
+      });
+      if (response.ok) {
+        const remoteSeed = await response.json();
+        cache.value = remoteSeed;
+        cache.at = Date.now();
+        return remoteSeed;
+      }
+    } catch {}
+  }
+
   try {
     return await readJsonFile(LOCAL_STORE_PATH);
   } catch {}
@@ -129,18 +160,6 @@ async function readPersistentStore() {
   try {
     return await readJsonFile(SEED_STORE_PATH);
   } catch {}
-
-  if (isVercelRuntime()) {
-    try {
-      const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(5000),
-      });
-      if (response.ok) {
-        return response.json();
-      }
-    } catch {}
-  }
 
   return null;
 }

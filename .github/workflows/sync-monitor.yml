@@ -47,4 +47,4 @@ jobs:
           git add data/store.seed.json
           git diff --cached --quiet && exit 0
           git commit -m "chore: refresh monitor seed data"
-          git push
+          git push origin HEAD:monitor-data --force-with-lease

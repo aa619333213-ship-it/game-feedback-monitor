@@ -866,7 +866,7 @@ async function getRedditFeedback({ force = false } = {}) {
   }
 
   const liveSyncMode = volatileRuntime && force;
-  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 8 : volatileRuntime ? 35 : 50);
+  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 25 : volatileRuntime ? 35 : 50);
   const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
   const commentsPerPost = volatileRuntime
     ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, liveSyncMode ? 1 : 2)) : 0)
@@ -874,7 +874,7 @@ async function getRedditFeedback({ force = false } = {}) {
   const lookbackDays = Number(sources.lookbackDays || 3);
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const requestOptions = liveSyncMode
-    ? { timeoutMs: 1800, maxAttempts: 1, preferRss: true, skipJsonFallback: true }
+    ? { timeoutMs: 6000, maxAttempts: 2, preferRss: false, skipJsonFallback: false }
     : volatileRuntime
       ? { timeoutMs: 8000, maxAttempts: 2 }
       : {};
@@ -888,7 +888,7 @@ async function getRedditFeedback({ force = false } = {}) {
       let pageCount = 0;
       let commentFetchCount = 0;
 
-      while (!reachedCutoff && pageCount < (liveSyncMode ? 1 : volatileRuntime ? 6 : 10)) {
+      while (!reachedCutoff && pageCount < (liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after, requestOptions);
         const children = listing?.data?.children || [];

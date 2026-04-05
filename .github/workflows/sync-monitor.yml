@@ -38,7 +38,7 @@ jobs:
 
       - name: Refresh store seed
         run: |
-          node ./scripts/update-seed-from-reddit.js
+          node ./scripts/update-seed-from-remote-sync.js
 
       - name: Commit updated seed
         run: |

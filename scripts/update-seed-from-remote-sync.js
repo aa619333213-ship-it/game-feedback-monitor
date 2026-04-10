@@ -4,6 +4,8 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "..");
 const SEED_PATH = path.join(ROOT, "data", "store.seed.json");
 const SYNC_URL = process.env.GFM_SYNC_URL || "https://shilongradar.fun/api/admin/sync";
+const DASHBOARD_URL = process.env.GFM_DASHBOARD_URL || "https://shilongradar.fun/api/dashboard";
+const MIN_SYNC_MINUTES = Math.max(1, Number(process.env.GFM_MIN_SYNC_MINUTES || 60));
 
 function toRawPost(post) {
   const originalTitle = post.originalTitle || post.title || "";
@@ -63,7 +65,59 @@ async function fetchDataset() {
   return payload.dataset;
 }
 
+async function fetchLatestOverview() {
+  const response = await fetch(`${DASHBOARD_URL}?ts=${Date.now()}`, {
+    method: "GET",
+    headers: {
+      "Cache-Control": "no-cache, no-store, max-age=0",
+      Pragma: "no-cache",
+      "User-Agent": "GameFeedbackMonitorSeedSync/1.0",
+    },
+    signal: AbortSignal.timeout(60000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Dashboard read failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload?.overview || null;
+}
+
+async function shouldSkipScheduledSync() {
+  const overview = await fetchLatestOverview();
+  const lastSyncAt = overview?.lastSyncAt ? new Date(overview.lastSyncAt) : null;
+  if (!lastSyncAt || Number.isNaN(lastSyncAt.getTime())) {
+    return { skip: false, lastSyncAt: null, ageMinutes: null };
+  }
+
+  const ageMinutes = (Date.now() - lastSyncAt.getTime()) / (60 * 1000);
+  if (ageMinutes < MIN_SYNC_MINUTES) {
+    return { skip: true, lastSyncAt: lastSyncAt.toISOString(), ageMinutes };
+  }
+
+  return { skip: false, lastSyncAt: lastSyncAt.toISOString(), ageMinutes };
+}
+
 async function main() {
+  const scheduleGate = await shouldSkipScheduledSync();
+  if (scheduleGate.skip) {
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          skipped: true,
+          reason: `Last sync was ${scheduleGate.ageMinutes.toFixed(1)} minutes ago; minimum interval is ${MIN_SYNC_MINUTES} minutes.`,
+          lastSyncAt: scheduleGate.lastSyncAt,
+          minSyncMinutes: MIN_SYNC_MINUTES,
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
   const dataset = await fetchDataset();
   const store = toStore(dataset);
   await fs.writeFile(SEED_PATH, `${JSON.stringify(store, null, 2)}\n`, "utf8");
@@ -75,6 +129,7 @@ async function main() {
         ingested: Array.isArray(dataset.posts) ? dataset.posts.length : 0,
         seedPath: SEED_PATH,
         source: SYNC_URL,
+        minSyncMinutes: MIN_SYNC_MINUTES,
       },
       null,
       2

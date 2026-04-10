@@ -853,7 +853,7 @@ async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   throw lastError || new Error(`Failed to fetch Reddit comments for ${permalink}`);
 }
 
-async function getRedditFeedback({ force = false } = {}) {
+async function getRedditFeedback({ force = false, existingSubmissionIds = null } = {}) {
   const state = getState();
   const sources = await readSources();
   const store = await hydrateStateFromStore();
@@ -900,7 +900,16 @@ async function getRedditFeedback({ force = false } = {}) {
       ? { timeoutMs: 8000, maxAttempts: 2 }
       : {};
   const results = [];
-  const maxCommentFetchPosts = liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
+  const knownSubmissionIds =
+    existingSubmissionIds instanceof Set
+      ? existingSubmissionIds
+      : new Set(
+          persistedRaw
+            .filter((item) => item.post_type === "submission")
+            .map((item) => item.external_id)
+        );
+  const incrementalMode = Boolean(force);
+  const maxCommentFetchPosts = incrementalMode ? 2 : liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
 
   try {
     for (const subreddit of sources.subreddits || []) {
@@ -908,8 +917,9 @@ async function getRedditFeedback({ force = false } = {}) {
       let reachedCutoff = false;
       let pageCount = 0;
       let commentFetchCount = 0;
+      let consecutiveKnownPosts = 0;
 
-      while (!reachedCutoff && pageCount < (liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
+      while (!reachedCutoff && pageCount < (incrementalMode ? 1 : liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after, requestOptions);
         const children = listing?.data?.children || [];
@@ -927,6 +937,13 @@ async function getRedditFeedback({ force = false } = {}) {
           const postBody = sanitizeText(post.selftext);
           const permalink = String(post.permalink || "");
           const externalId = `t3_${post.id}`;
+          const isKnownSubmission = knownSubmissionIds.has(externalId);
+
+          if (incrementalMode && isKnownSubmission) {
+            consecutiveKnownPosts += 1;
+          } else {
+            consecutiveKnownPosts = 0;
+          }
 
           results.push({
             external_id: externalId,
@@ -944,7 +961,7 @@ async function getRedditFeedback({ force = false } = {}) {
             combined_text: sanitizeText(`${postTitle} ${postBody}`),
           });
 
-          if (commentsPerPost > 0 && commentFetchCount < maxCommentFetchPosts) {
+          if (commentsPerPost > 0 && commentFetchCount < maxCommentFetchPosts && (!incrementalMode || !isKnownSubmission)) {
             try {
               commentFetchCount += 1;
               const commentResponse = await fetchRedditComments(permalink, commentsPerPost, requestOptions);
@@ -980,6 +997,11 @@ async function getRedditFeedback({ force = false } = {}) {
             } catch (error) {
               console.error("Failed to fetch comments", error);
             }
+          }
+
+          if (incrementalMode && consecutiveKnownPosts >= 5) {
+            reachedCutoff = true;
+            break;
           }
         }
 
@@ -1381,12 +1403,17 @@ async function syncLiveDataset() {
   const sources = await readSources();
   const lookbackDays = Number(sources.lookbackDays || 3);
   const store = await hydrateStateFromStore();
-  const existingRawPosts = Array.isArray(store.raw_posts) ? store.raw_posts : [];
+  const existingRawPosts = pruneRawPostsToLookback(Array.isArray(store.raw_posts) ? store.raw_posts : [], lookbackDays);
+  const existingSubmissionIds = new Set(
+    existingRawPosts
+      .filter((item) => item.post_type === "submission")
+      .map((item) => item.external_id)
+  );
   const syncedAt = new Date().toISOString();
 
   forceRefresh();
-  const liveRawPosts = await getRedditFeedback({ force: true });
-  const mergedRawPosts = mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays);
+  const liveRawPosts = await getRedditFeedback({ force: true, existingSubmissionIds });
+  const mergedRawPosts = pruneRawPostsToLookback(mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays), lookbackDays);
 
   return buildDataset({
     force: false,

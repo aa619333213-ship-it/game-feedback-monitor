@@ -22,6 +22,12 @@
 
   const LOCAL_DATASET_KEY = "gfm-latest-dashboard-dataset";
 
+  function getDatasetTimestamp(dataset) {
+    const lastSyncAt = dataset && dataset.overview ? dataset.overview.lastSyncAt : null;
+    const ts = new Date(lastSyncAt || 0).getTime();
+    return Number.isFinite(ts) ? ts : 0;
+  }
+
   const els = {
     riskCard: document.getElementById("risk-card"),
     riskWeather: document.getElementById("risk-weather"),
@@ -181,12 +187,16 @@
 
   async function renderAll() {
     let datasetToUse = null;
+    const localDataset = readLocalDataset();
 
     try {
-      datasetToUse = await App.fetchApi("/api/dashboard");
+      const remoteDataset = await App.fetchApi("/api/dashboard");
+      const localTimestamp = getDatasetTimestamp(localDataset);
+      const remoteTimestamp = getDatasetTimestamp(remoteDataset);
+      datasetToUse = localTimestamp > remoteTimestamp ? localDataset : remoteDataset;
       persistLocalDataset(datasetToUse);
     } catch (error) {
-      datasetToUse = readLocalDataset();
+      datasetToUse = localDataset;
       if (!datasetToUse) {
         throw error;
       }

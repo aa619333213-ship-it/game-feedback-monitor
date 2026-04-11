@@ -1,5 +1,6 @@
 (function () {
   const LATEST_OVERVIEW_KEY = "gfm-last-sync-overview";
+  const LATEST_DATASET_KEY = "gfm-latest-dashboard-dataset";
 
   function readLatestOverview() {
     try {
@@ -14,6 +15,13 @@
     if (!overview) return;
     try {
       window.localStorage.setItem(LATEST_OVERVIEW_KEY, JSON.stringify(overview));
+    } catch {}
+  }
+
+  function saveLatestDataset(dataset) {
+    if (!dataset || !dataset.overview || !Array.isArray(dataset.posts)) return;
+    try {
+      window.localStorage.setItem(LATEST_DATASET_KEY, JSON.stringify(dataset));
     } catch {}
   }
 
@@ -97,6 +105,7 @@
           throw new Error("同步结果无效");
         }
 
+        saveLatestDataset(result.dataset);
         saveLatestOverview(result.dataset.overview);
         updateSyncStatus(result.dataset.overview);
         window.setTimeout(() => {

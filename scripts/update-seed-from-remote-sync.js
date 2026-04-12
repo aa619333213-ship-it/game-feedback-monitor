@@ -5,7 +5,8 @@ const ROOT = path.resolve(__dirname, "..");
 const SEED_PATH = path.join(ROOT, "data", "store.seed.json");
 const SYNC_URL = process.env.GFM_SYNC_URL || "https://shilongradar.fun/api/admin/sync";
 const DASHBOARD_URL = process.env.GFM_DASHBOARD_URL || "https://shilongradar.fun/api/dashboard";
-const MIN_SYNC_MINUTES = Math.max(1, Number(process.env.GFM_MIN_SYNC_MINUTES || 60));
+const MIN_SYNC_MINUTES = Math.max(0, Number(process.env.GFM_MIN_SYNC_MINUTES || 60));
+const SYNC_MODE = String(process.env.GFM_SYNC_MODE || "light").toLowerCase() === "full" ? "full" : "light";
 
 function toRawPost(post) {
   const originalTitle = post.originalTitle || post.title || "";
@@ -43,7 +44,7 @@ function toStore(dataset) {
 }
 
 async function fetchDataset() {
-  const response = await fetch(`${SYNC_URL}?ts=${Date.now()}`, {
+  const response = await fetch(`${SYNC_URL}?ts=${Date.now()}&mode=${encodeURIComponent(SYNC_MODE)}`, {
     method: "POST",
     headers: {
       "Cache-Control": "no-cache, no-store, max-age=0",
@@ -100,7 +101,7 @@ async function shouldSkipScheduledSync() {
 }
 
 async function main() {
-  const scheduleGate = await shouldSkipScheduledSync();
+  const scheduleGate = SYNC_MODE === "full" ? { skip: false, lastSyncAt: null, ageMinutes: null } : await shouldSkipScheduledSync();
   if (scheduleGate.skip) {
     console.log(
       JSON.stringify(
@@ -110,6 +111,7 @@ async function main() {
           reason: `Last sync was ${scheduleGate.ageMinutes.toFixed(1)} minutes ago; minimum interval is ${MIN_SYNC_MINUTES} minutes.`,
           lastSyncAt: scheduleGate.lastSyncAt,
           minSyncMinutes: MIN_SYNC_MINUTES,
+          mode: SYNC_MODE,
         },
         null,
         2
@@ -130,6 +132,7 @@ async function main() {
         seedPath: SEED_PATH,
         source: SYNC_URL,
         minSyncMinutes: MIN_SYNC_MINUTES,
+        mode: SYNC_MODE,
       },
       null,
       2

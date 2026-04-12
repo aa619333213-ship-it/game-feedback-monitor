@@ -818,6 +818,26 @@ function buildRedditCommentUrls(permalink, commentsPerPost) {
   });
 }
 
+function getReplyCount(comment) {
+  const replies = comment?.replies?.data?.children;
+  if (!Array.isArray(replies)) return 0;
+  return replies.filter((item) => item?.kind === "t1" && item?.data && String(item.data.body || "").trim()).length;
+}
+
+function rankCommentChildren(commentChildren) {
+  return (commentChildren || [])
+    .filter((item) => item?.kind === "t1" && item?.data)
+    .sort((left, right) => {
+      const replyDiff = getReplyCount(right.data) - getReplyCount(left.data);
+      if (replyDiff) return replyDiff;
+
+      const scoreDiff = Number(right.data.score || 0) - Number(left.data.score || 0);
+      if (scoreDiff) return scoreDiff;
+
+      return Number(right.data.created_utc || 0) - Number(left.data.created_utc || 0);
+    });
+}
+
 async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   let lastError = null;
   const rssUrl = `https://www.reddit.com${permalink}.rss?limit=${commentsPerPost}&sort=new&_=${Date.now()}`;
@@ -853,7 +873,7 @@ async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   throw lastError || new Error(`Failed to fetch Reddit comments for ${permalink}`);
 }
 
-async function getRedditFeedback({ force = false, existingSubmissionIds = null } = {}) {
+async function getRedditFeedback({ force = false, existingSubmissionIds = null, mode = "light" } = {}) {
   const state = getState();
   const sources = await readSources();
   const store = await hydrateStateFromStore();
@@ -887,12 +907,32 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
   }
 
   const liveSyncMode = volatileRuntime && force;
-  const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 25 : volatileRuntime ? 35 : 50);
+  const syncMode = mode === "full" ? "full" : "light";
+  const fullSyncMode = Boolean(force) && syncMode === "full";
+  const postsPerPage = Math.min(
+    Number(sources.limits?.postsPerSubreddit || 50),
+    fullSyncMode ? 50 : liveSyncMode ? 25 : volatileRuntime ? 35 : 50
+  );
   const lookbackDays = Number(sources.lookbackDays || 3);
   const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
-  const commentBackfillMode = force && shouldBackfillComments(persistedRaw, lookbackDays);
+  const commentBackfillMode = fullSyncMode || (force && shouldBackfillComments(persistedRaw, lookbackDays));
+  const commentCandidateLimit = fullSyncMode
+    ? Math.max(configuredCommentsPerPost * 3, 18)
+    : commentBackfillMode
+      ? Math.max(configuredCommentsPerPost * 2, 12)
+      : configuredCommentsPerPost;
   const commentsPerPost = volatileRuntime
-    ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, commentBackfillMode ? configuredCommentsPerPost : liveSyncMode ? 1 : 2)) : 0)
+    ? (
+        force
+          ? Math.max(
+              1,
+              Math.min(
+                fullSyncMode ? Math.max(configuredCommentsPerPost, 8) : configuredCommentsPerPost,
+                commentBackfillMode ? configuredCommentsPerPost : liveSyncMode ? 1 : 2
+              )
+            )
+          : 0
+      )
     : configuredCommentsPerPost;
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const requestOptions = liveSyncMode
@@ -910,7 +950,7 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
             .map((item) => item.external_id)
         );
   const incrementalMode = Boolean(force) && !commentBackfillMode;
-  const maxCommentFetchPosts = commentBackfillMode ? 20 : incrementalMode ? 2 : liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
+  const maxCommentFetchPosts = fullSyncMode ? 30 : commentBackfillMode ? 20 : incrementalMode ? 2 : liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
 
   try {
     for (const subreddit of sources.subreddits || []) {
@@ -920,7 +960,7 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
       let commentFetchCount = 0;
       let consecutiveKnownPosts = 0;
 
-      while (!reachedCutoff && pageCount < (commentBackfillMode ? 3 : incrementalMode ? 1 : liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
+      while (!reachedCutoff && pageCount < (fullSyncMode ? 4 : commentBackfillMode ? 3 : incrementalMode ? 1 : liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after, requestOptions);
         const children = listing?.data?.children || [];
@@ -965,9 +1005,9 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
           if (commentsPerPost > 0 && commentFetchCount < maxCommentFetchPosts && (!incrementalMode || !isKnownSubmission)) {
             try {
               commentFetchCount += 1;
-              const commentResponse = await fetchRedditComments(permalink, commentsPerPost, requestOptions);
+              const commentResponse = await fetchRedditComments(permalink, commentCandidateLimit, requestOptions);
               const commentListing = commentResponse?.[1];
-              const commentChildren = commentListing?.data?.children || [];
+              const commentChildren = rankCommentChildren(commentListing?.data?.children || []);
               let counter = 0;
 
               for (const commentChild of commentChildren) {
@@ -1111,6 +1151,15 @@ function shouldBackfillComments(rawPosts, lookbackDays = 3) {
 
   const minHealthyComments = Math.min(40, submissions.length * 2);
   return comments.length < minHealthyComments;
+}
+
+function shouldPreferFullBackfill(rawPosts, lookbackDays = 3) {
+  const recent = pruneRawPostsToLookback(rawPosts, lookbackDays);
+  const submissions = recent.filter((item) => item.post_type === "submission");
+  const comments = recent.filter((item) => item.post_type === "comment");
+
+  if (!submissions.length) return false;
+  return comments.length < Math.min(120, submissions.length * 4);
 }
 
 function mergeRawPosts(existingRawPosts, incomingRawPosts, lookbackDays = 3) {
@@ -1450,7 +1499,7 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
   return dataset;
 }
 
-async function syncLiveDataset() {
+async function syncLiveDataset(mode = "light") {
   const sources = await readSources();
   const lookbackDays = Number(sources.lookbackDays || 3);
   const store = await hydrateStateFromStore();
@@ -1463,7 +1512,9 @@ async function syncLiveDataset() {
   const syncedAt = new Date().toISOString();
 
   forceRefresh();
-  const liveRawPosts = await getRedditFeedback({ force: true, existingSubmissionIds });
+  const effectiveMode =
+    mode === "full" || shouldPreferFullBackfill(existingRawPosts, lookbackDays) ? "full" : "light";
+  const liveRawPosts = await getRedditFeedback({ force: true, existingSubmissionIds, mode: effectiveMode });
   const mergedRawPosts = pruneRawPostsToLookback(mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays), lookbackDays);
 
   return buildDataset({

@@ -6,12 +6,15 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "GET") return methodNotAllowed(res);
 
   try {
-    const dataset = await syncLiveDataset();
+    const mode =
+      String(req.query?.mode || req.body?.mode || "light").toLowerCase() === "full" ? "full" : "light";
+    const dataset = await syncLiveDataset(mode);
     return sendJson(res, 200, {
       ok: true,
       result: {
         syncedAt: dataset.overview.lastSyncAt,
         ingested: dataset.posts.length,
+        mode,
       },
       dataset,
     });

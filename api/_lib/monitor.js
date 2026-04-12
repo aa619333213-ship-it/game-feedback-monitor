@@ -888,11 +888,12 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
 
   const liveSyncMode = volatileRuntime && force;
   const postsPerPage = Math.min(Number(sources.limits?.postsPerSubreddit || 50), liveSyncMode ? 25 : volatileRuntime ? 35 : 50);
-  const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
-  const commentsPerPost = volatileRuntime
-    ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, liveSyncMode ? 1 : 2)) : 0)
-    : configuredCommentsPerPost;
   const lookbackDays = Number(sources.lookbackDays || 3);
+  const configuredCommentsPerPost = Number(sources.limits?.commentsPerPost || 4);
+  const commentBackfillMode = force && shouldBackfillComments(persistedRaw, lookbackDays);
+  const commentsPerPost = volatileRuntime
+    ? (force ? Math.max(1, Math.min(configuredCommentsPerPost, commentBackfillMode ? configuredCommentsPerPost : liveSyncMode ? 1 : 2)) : 0)
+    : configuredCommentsPerPost;
   const cutoffTs = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
   const requestOptions = liveSyncMode
     ? { timeoutMs: 6000, maxAttempts: 2, preferRss: false, skipJsonFallback: false }
@@ -908,8 +909,8 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
             .filter((item) => item.post_type === "submission")
             .map((item) => item.external_id)
         );
-  const incrementalMode = Boolean(force);
-  const maxCommentFetchPosts = incrementalMode ? 2 : liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
+  const incrementalMode = Boolean(force) && !commentBackfillMode;
+  const maxCommentFetchPosts = commentBackfillMode ? 20 : incrementalMode ? 2 : liveSyncMode ? 1 : Number.MAX_SAFE_INTEGER;
 
   try {
     for (const subreddit of sources.subreddits || []) {
@@ -919,7 +920,7 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null }
       let commentFetchCount = 0;
       let consecutiveKnownPosts = 0;
 
-      while (!reachedCutoff && pageCount < (incrementalMode ? 1 : liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
+      while (!reachedCutoff && pageCount < (commentBackfillMode ? 3 : incrementalMode ? 1 : liveSyncMode ? 2 : volatileRuntime ? 6 : 10)) {
         pageCount += 1;
         const listing = await fetchRedditListing(subreddit, postsPerPage, after, requestOptions);
         const children = listing?.data?.children || [];
@@ -1098,6 +1099,18 @@ function pruneRawPostsToLookback(rawPosts, lookbackDays = 3) {
     const createdAt = new Date(item.created_at_source || 0).getTime();
     return Number.isFinite(createdAt) && createdAt >= cutoff;
   });
+}
+
+function shouldBackfillComments(rawPosts, lookbackDays = 3) {
+  const recent = pruneRawPostsToLookback(rawPosts, lookbackDays);
+  const submissions = recent.filter((item) => item.post_type === "submission");
+  const comments = recent.filter((item) => item.post_type === "comment");
+
+  if (!submissions.length) return false;
+  if (comments.length < 10) return true;
+
+  const minHealthyComments = Math.min(40, submissions.length * 2);
+  return comments.length < minHealthyComments;
 }
 
 function mergeRawPosts(existingRawPosts, incomingRawPosts, lookbackDays = 3) {

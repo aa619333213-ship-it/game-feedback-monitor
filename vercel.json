@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    { "source": "/rok", "destination": "/index.html?game=rise-of-kingdoms" },
+    { "source": "/rok/reports", "destination": "/reports.html?game=rise-of-kingdoms" },
+    { "source": "/rok/review", "destination": "/review.html?game=rise-of-kingdoms" },
+    { "source": "/new-game", "destination": "/index.html?game=new-game" },
+    { "source": "/new-game/reports", "destination": "/reports.html?game=new-game" },
+    { "source": "/new-game/review", "destination": "/review.html?game=new-game" }
+  ]
+}

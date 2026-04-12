@@ -15,11 +15,34 @@
     rulesNegative: document.getElementById("rules-negative"),
     rulesPositive: document.getElementById("rules-positive"),
     taxonomyForm: document.getElementById("taxonomy-form"),
+    gameSwitcher: document.getElementById("review-game-switcher"),
   };
 
   async function init() {
+    renderGameSwitcher(await App.fetchApi("/api/games"));
+    updateNavLinks();
     await renderPage();
     bindRuleForm();
+  }
+
+  function renderGameSwitcher(games) {
+    if (!els.gameSwitcher) return;
+    const currentGame = App.getCurrentGameKey();
+    els.gameSwitcher.innerHTML = (games || []).map((game) => `
+      <a class="radar-game-card ${game.key === currentGame ? "is-active" : ""}" href="${App.buildPageHref("dashboard", game.key)}">
+        <strong>${game.displayName || game.name}</strong>
+        <p>${game.sourcesLabel || ""}</p>
+        ${game.key === currentGame ? '<span class="radar-game-badge">当前</span>' : ""}
+      </a>
+    `).join("");
+  }
+
+  function updateNavLinks() {
+    const currentGame = App.getCurrentGameKey();
+    const links = Array.from(document.querySelectorAll(".nav-link"));
+    if (links[0]) links[0].href = App.buildPageHref("dashboard", currentGame);
+    if (links[1]) links[1].href = App.buildPageHref("reports", currentGame);
+    if (links[2]) links[2].href = App.buildPageHref("review", currentGame);
   }
 
   async function renderPage() {

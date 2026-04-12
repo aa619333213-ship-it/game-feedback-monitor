@@ -1,0 +1,20 @@
+[
+  {
+    "key": "rise-of-kingdoms",
+    "slug": "rok",
+    "name": "Rise of Kingdoms",
+    "displayName": "万国觉醒",
+    "sourcesLabel": "r/RiseofKingdoms",
+    "subreddits": ["RiseofKingdoms"],
+    "placeholder": false
+  },
+  {
+    "key": "new-game",
+    "slug": "new-game",
+    "name": "New Game",
+    "displayName": "New Game",
+    "sourcesLabel": "待配置数据源",
+    "subreddits": [],
+    "placeholder": true
+  }
+]

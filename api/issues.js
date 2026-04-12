@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") return methodNotAllowed(res);
 
   try {
-    const dataset = await buildDataset({ persist: false });
+    const dataset = await buildDataset({ persist: false, gameKey: req.query?.game });
     const system = req.query.system;
     const risk = req.query.risk;
     let items = [...dataset.issues];

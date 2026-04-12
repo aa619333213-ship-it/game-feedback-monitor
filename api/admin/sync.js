@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "GET") return methodNotAllowed(res);
 
   try {
-    const dataset = await syncLiveDataset();
+    const dataset = await syncLiveDataset(req.query && req.query.game);
     return sendJson(res, 200, {
       ok: true,
       result: {

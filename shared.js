@@ -2,6 +2,25 @@
   const STORAGE_KEY = "game-feedback-monitor-review-actions";
   const RULES_STORAGE_KEY = "game-feedback-monitor-rules";
   const API_BASE = "";
+  const DEFAULT_GAME_KEY = "rise-of-kingdoms";
+  const GAME_CATALOG = [
+    {
+      key: "rise-of-kingdoms",
+      slug: "rok",
+      name: "Rise of Kingdoms",
+      displayName: "万国觉醒",
+      sourcesLabel: "r/RiseofKingdoms",
+      placeholder: false,
+    },
+    {
+      key: "new-game",
+      slug: "new-game",
+      name: "New Game",
+      displayName: "New Game",
+      sourcesLabel: "待配置数据源",
+      placeholder: true,
+    },
+  ];
 
   const TAXONOMY = [
     { key: "matchmaking", label: "匹配", aliases: ["queue", "ranked", "match"] },
@@ -145,6 +164,102 @@
     social: [8, 9, 10, 9, 9, 8, 8],
     onboarding: [10, 12, 12, 15, 18, 20, 22],
   };
+
+  function getGameCatalog() {
+    return clone(GAME_CATALOG);
+  }
+
+  function getGameConfig(gameKey) {
+    const normalized = String(gameKey || DEFAULT_GAME_KEY).trim().toLowerCase();
+    return GAME_CATALOG.find((item) => item.key === normalized || item.slug === normalized) || GAME_CATALOG[0];
+  }
+
+  function getCurrentGameKey() {
+    const params = new URLSearchParams(window.location.search);
+    const pathGame = window.location.pathname.split("/").filter(Boolean)[0];
+    if (pathGame && GAME_CATALOG.some((item) => item.slug === pathGame || item.key === pathGame)) {
+      return getGameConfig(pathGame).key;
+    }
+    return getGameConfig(params.get("game")).key;
+  }
+
+  function isLocalLikeHost() {
+    return window.location.protocol === "file:" || /^(127\.0\.0\.1|localhost)$/i.test(window.location.hostname);
+  }
+
+  function buildPageHref(page, gameKey = getCurrentGameKey()) {
+    const game = getGameConfig(gameKey);
+    const pageMap = {
+      dashboard: "index.html",
+      reports: "reports.html",
+      review: "review.html",
+    };
+    if (isLocalLikeHost()) {
+      const file = pageMap[page] || "index.html";
+      return `./${file}?game=${encodeURIComponent(game.key)}`;
+    }
+
+    if (page === "dashboard") {
+      return `/${game.slug}`;
+    }
+    return `/${game.slug}/${page}`;
+  }
+
+  function buildPlaceholderDataset(gameKey = getCurrentGameKey()) {
+    const game = getGameConfig(gameKey);
+    return {
+      overview: {
+        game: game.name,
+        displayName: game.displayName,
+        gameKey: game.key,
+        sources: [],
+        riskScore: 0,
+        riskLevel: "green",
+        weatherLevel: "green",
+        weatherLabel: "sunny",
+        needleAngle: -90,
+        riskCopy: "Routine Monitoring",
+        riskChange: 0,
+        negativeVolume: 0,
+        redRiskCount: 0,
+        orangeRiskCount: 0,
+        greenRiskCount: 0,
+        discussionHeat: 0,
+        growthRate: 0,
+        alertsCount: 0,
+        totalPosts: 0,
+        totalSubmissions: 0,
+        totalComments: 0,
+        topTopic: null,
+        executiveSummary: "No source configured yet.",
+        lastSyncAt: null,
+        placeholder: true,
+      },
+      posts: [],
+      insights: [],
+      alerts: [],
+      report: {
+        title: `${game.name} 每日风险简报`,
+        subtitle: `数据源：${game.sourcesLabel}`,
+        executiveSummary: "当前还没有接入这款游戏的数据源。",
+        executiveDetail: "你后面只需要补游戏名、来源社区和关键词，这套页面就可以继续复用。",
+        metrics: [
+          { label: "整体风险", value: 0, hint: "绿色" },
+          { label: "帖子 / 评论", value: "0 / 0", hint: "过去72h" },
+          { label: "预警数", value: 0, hint: "高风险或升温问题" },
+          { label: "讨论热度", value: 0, hint: "点赞 + 评论" },
+        ],
+        topTopics: [],
+        actions: [],
+        featuredPosts: [],
+      },
+      reviewQueue: [],
+      taxonomy: TAXONOMY,
+      trends: {},
+      reviewActions: getStoredReviews(),
+      rules: getStoredRules(),
+    };
+  }
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
@@ -464,7 +579,12 @@
       });
   }
 
-  function getDataset() {
+  function getDataset(gameKey = getCurrentGameKey()) {
+    const game = getGameConfig(gameKey);
+    if (game.placeholder) {
+      return buildPlaceholderDataset(gameKey);
+    }
+
     const randomized = randomizeData(clone(BASE_POSTS), clone(BASE_TRENDS));
     const posts = withReviewOverrides(randomized.posts).map((post) => {
       const riskLevel = classifyContentRisk(`${post.title} ${post.body}`);
@@ -494,8 +614,19 @@
   }
 
   function mockFetch(path, params = {}) {
-    const data = getDataset();
+    const gameKey = params && params.game ? params.game : getCurrentGameKey();
+    const data = getDataset(gameKey);
     switch (path) {
+      case "/api/games":
+        return Promise.resolve(getGameCatalog());
+      case "/api/dashboard":
+        return Promise.resolve({
+          overview: data.overview,
+          issues: data.insights,
+          alerts: data.alerts,
+          taxonomy: data.taxonomy,
+          posts: data.posts,
+        });
       case "/api/dashboard/overview":
         return Promise.resolve(data.overview);
       case "/api/issues":
@@ -531,18 +662,20 @@
 
   async function realFetch(path, params = {}, method = "GET") {
     const url = new URL(`${API_BASE}${path}`, window.location.origin);
-    if (method === "GET") {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          url.searchParams.set(key, value);
-        }
-      });
+    const nextParams = { ...params };
+    if (path.startsWith("/api/") && !nextParams.game) {
+      nextParams.game = getCurrentGameKey();
     }
+    Object.entries(nextParams).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        url.searchParams.set(key, value);
+      }
+    });
 
     const response = await fetch(url.toString(), {
       method,
       headers: method === "GET" ? undefined : { "Content-Type": "application/json" },
-      body: method === "GET" ? undefined : JSON.stringify(params),
+      body: method === "GET" ? undefined : JSON.stringify(nextParams),
     });
 
     if (!response.ok) {
@@ -610,6 +743,10 @@
 
   window.GameFeedbackMonitor = {
     getDataset,
+    getGameCatalog,
+    getGameConfig,
+    getCurrentGameKey,
+    buildPageHref,
     mockFetch,
     fetchApi,
     topicLabel,

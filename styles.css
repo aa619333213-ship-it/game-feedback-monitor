@@ -1770,6 +1770,59 @@ input[type="checkbox"] {
   }
 }
 
+.radar-game-switcher,
+.sidebar-game-switcher {
+  display: grid;
+  gap: 12px;
+}
+
+.radar-game-card {
+  display: block;
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(30, 41, 59, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.radar-game-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.12);
+}
+
+.radar-game-card.is-active {
+  border-color: rgba(37, 99, 235, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35), 0 18px 32px rgba(37, 99, 235, 0.12);
+}
+
+.radar-game-card strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.radar-game-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.92rem;
+}
+
+.radar-game-badge {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -5,6 +5,8 @@
   }
 
   const state = {
+    currentGame: App.getCurrentGameKey ? App.getCurrentGameKey() : "rise-of-kingdoms",
+    games: [],
     topic: "all",
     sentiment: "all",
     risk: "all",
@@ -20,7 +22,11 @@
     syncedPostsPayload: null,
   };
 
-  const LOCAL_DATASET_KEY = "gfm-latest-dashboard-dataset";
+  const LOCAL_DATASET_KEY_PREFIX = "gfm-latest-dashboard-dataset";
+
+  function getLocalDatasetKey(gameKey = state.currentGame) {
+    return `${LOCAL_DATASET_KEY_PREFIX}:${gameKey || "rise-of-kingdoms"}`;
+  }
 
   function getDatasetTimestamp(dataset) {
     const lastSyncAt = dataset && dataset.overview ? dataset.overview.lastSyncAt : null;
@@ -33,6 +39,7 @@
     riskWeather: document.getElementById("risk-weather"),
     gameName: document.getElementById("game-name"),
     sourceSummary: document.getElementById("source-summary"),
+    gameSwitcher: document.getElementById("game-switcher"),
     riskScore: document.getElementById("risk-score"),
     riskChange: document.getElementById("risk-change"),
     riskPanelTitle: document.getElementById("risk-panel-title"),
@@ -63,6 +70,9 @@
   };
 
   async function init() {
+    state.games = await App.fetchApi("/api/games");
+    renderGameSwitcher();
+    updateNavLinks();
     if (els.contentTypeFilter) {
       els.contentTypeFilter.value = state.contentType;
     }
@@ -120,6 +130,29 @@
         window.alert(`测试告警失败：${error.message}`);
       }
     });
+  }
+
+  function renderGameSwitcher() {
+    if (!els.gameSwitcher || !Array.isArray(state.games) || !state.games.length) {
+      return;
+    }
+
+    els.gameSwitcher.innerHTML = state.games
+      .map((game) => `
+        <a class="radar-game-card ${game.key === state.currentGame ? "is-active" : ""}" href="${App.buildPageHref("dashboard", game.key)}">
+          <strong>${game.displayName || game.name}</strong>
+          <p>${game.sourcesLabel || ""}</p>
+          ${game.key === state.currentGame ? '<span class="radar-game-badge">当前</span>' : ""}
+        </a>
+      `)
+      .join("");
+  }
+
+  function updateNavLinks() {
+    const links = Array.from(document.querySelectorAll(".radar-nav-link"));
+    if (links[0]) links[0].href = App.buildPageHref("dashboard", state.currentGame);
+    if (links[1]) links[1].href = App.buildPageHref("reports", state.currentGame);
+    if (links[2]) links[2].href = App.buildPageHref("review", state.currentGame);
   }
 
   async function onIssueListClick(event) {
@@ -202,6 +235,12 @@
       }
     }
 
+    if (datasetToUse && datasetToUse.overview && datasetToUse.overview.gameKey) {
+      state.currentGame = datasetToUse.overview.gameKey;
+      renderGameSwitcher();
+      updateNavLinks();
+    }
+
     renderOverview(datasetToUse.overview, datasetToUse.issues, datasetToUse.alerts);
     renderIssues(datasetToUse.issues);
     populateTopicFilter(datasetToUse.taxonomy);
@@ -257,7 +296,7 @@
         : (overview.redRiskCount || 0) + (overview.orangeRiskCount || 0) + (overview.greenRiskCount || 0);
     const totalComments = Number.isFinite(overview.totalComments) ? overview.totalComments : 0;
 
-    els.gameName.textContent = "万国觉醒";
+    els.gameName.textContent = overview.displayName || overview.game || "Rise of Kingdoms";
     els.sourceSummary.textContent = sourceList.join(" + ");
     els.riskPanelTitle.textContent = `风险气象（评分: ${overview.riskScore} - ${weatherLabel}）`;
     els.riskScore.textContent = overview.riskScore;
@@ -373,6 +412,11 @@
   }
 
   function applyDashboardDataset(dataset) {
+    if (dataset && dataset.overview && dataset.overview.gameKey) {
+      state.currentGame = dataset.overview.gameKey;
+      renderGameSwitcher();
+      updateNavLinks();
+    }
     persistLocalDataset(dataset);
     renderOverview(dataset.overview, dataset.issues, dataset.alerts);
     renderIssues(dataset.issues);
@@ -383,10 +427,12 @@
 
   function readLocalDataset() {
     try {
-      const raw = window.localStorage.getItem(LOCAL_DATASET_KEY);
+      const raw = window.localStorage.getItem(getLocalDatasetKey());
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      return parsed && parsed.overview && Array.isArray(parsed.posts) ? parsed : null;
+      if (!parsed || !parsed.overview || !Array.isArray(parsed.posts)) return null;
+      if ((parsed.overview.gameKey || state.currentGame) !== state.currentGame) return null;
+      return parsed;
     } catch {
       return null;
     }
@@ -395,7 +441,8 @@
   function persistLocalDataset(dataset) {
     try {
       if (!dataset || !dataset.overview || !Array.isArray(dataset.posts)) return;
-      window.localStorage.setItem(LOCAL_DATASET_KEY, JSON.stringify(dataset));
+      const gameKey = dataset.overview.gameKey || state.currentGame;
+      window.localStorage.setItem(getLocalDatasetKey(gameKey), JSON.stringify(dataset));
     } catch {}
   }
 

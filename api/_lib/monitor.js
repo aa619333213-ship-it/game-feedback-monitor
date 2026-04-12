@@ -4,9 +4,11 @@ const { hasBlobStorage, readPersistentStore, writePersistentStore } = require(".
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SOURCES_PATH = path.join(ROOT, "data", "sources.json");
+const GAMES_PATH = path.join(ROOT, "data", "games.json");
 const STORE_PATH = path.join(ROOT, "data", "store.json");
 const REDDIT_USER_AGENT =
   "ShilongRadarBot/1.0 (by /u/aa619333213-ship-it; +https://shilongradar.fun)";
+const DEFAULT_GAME_KEY = "rise-of-kingdoms";
 
 const TOPIC_FOCUS = {
   matchmaking: "\u5339\u914d\u516c\u5e73\u6027\u548c\u5bf9\u5c40\u8d28\u91cf",
@@ -43,6 +45,8 @@ function getState() {
         dataset: null,
         rawAt: 0,
         datasetAt: 0,
+        rawGameKey: null,
+        datasetGameKey: null,
       },
     };
   }
@@ -134,6 +138,73 @@ async function hydrateStateFromStore() {
 async function readSources() {
   const text = await fs.readFile(SOURCES_PATH, "utf8");
   return JSON.parse(text);
+}
+
+async function readGames() {
+  try {
+    const text = await fs.readFile(GAMES_PATH, "utf8");
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) && parsed.length ? parsed : getDefaultGames();
+  } catch {
+    return getDefaultGames();
+  }
+}
+
+function getDefaultGames() {
+  return [
+    {
+      key: "rise-of-kingdoms",
+      slug: "rok",
+      name: "Rise of Kingdoms",
+      displayName: "万国觉醒",
+      sourcesLabel: "r/RiseofKingdoms",
+      subreddits: ["RiseofKingdoms"],
+      placeholder: false,
+    },
+    {
+      key: "new-game",
+      slug: "new-game",
+      name: "New Game",
+      displayName: "New Game",
+      sourcesLabel: "待配置数据源",
+      subreddits: [],
+      placeholder: true,
+    },
+  ];
+}
+
+function normalizeGameKey(gameKey) {
+  return String(gameKey || DEFAULT_GAME_KEY).trim().toLowerCase();
+}
+
+function resolveGameConfig(gameKey, games) {
+  const normalized = normalizeGameKey(gameKey);
+  return (
+    games.find((item) => normalizeGameKey(item.key) === normalized) ||
+    games.find((item) => item.slug === normalized) ||
+    games[0] ||
+    getDefaultGames()[0]
+  );
+}
+
+async function readSourceConfig(gameKey = DEFAULT_GAME_KEY) {
+  const [baseSources, games] = await Promise.all([readSources(), readGames()]);
+  const game = resolveGameConfig(gameKey, games);
+  const sourcesLabel = game.sourcesLabel || (game.subreddits || []).map((item) => `r/${item}`).join(" + ") || "待配置数据源";
+
+  return {
+    ...baseSources,
+    game: {
+      ...(baseSources.game || {}),
+      key: game.key,
+      slug: game.slug,
+      name: game.name,
+      displayName: game.displayName || game.name,
+      placeholder: Boolean(game.placeholder),
+    },
+    subreddits: Array.isArray(game.subreddits) && game.subreddits.length ? game.subreddits : (baseSources.subreddits || []),
+    sourcesLabel,
+  };
 }
 
 function getDefaultRules() {
@@ -433,6 +504,61 @@ function getFallbackRawPosts() {
       combined_text: "Where did kvk originate? Older cross-server experiences felt smoother. The current server experience is harder to trust.",
     },
   ];
+}
+
+function buildPlaceholderDataset(sourceConfig, rules, lastSyncAtOverride = null) {
+  const lastSyncAt = lastSyncAtOverride || null;
+  return {
+    overview: {
+      game: sourceConfig.game?.name || "New Game",
+      displayName: sourceConfig.game?.displayName || sourceConfig.game?.name || "New Game",
+      gameKey: sourceConfig.game?.key || "new-game",
+      sources: [],
+      riskScore: 0,
+      riskLevel: "green",
+      weatherLevel: "green",
+      weatherLabel: "sunny",
+      needleAngle: -90,
+      riskCopy: "Routine Monitoring",
+      riskChange: 0,
+      negativeVolume: 0,
+      redRiskCount: 0,
+      orangeRiskCount: 0,
+      greenRiskCount: 0,
+      discussionHeat: 0,
+      growthRate: 0,
+      alertsCount: 0,
+      totalPosts: 0,
+      totalSubmissions: 0,
+      totalComments: 0,
+      topTopic: null,
+      executiveSummary: "This game has no source configured yet.",
+      lastSyncAt,
+      placeholder: true,
+    },
+    issues: [],
+    posts: [],
+    alerts: [],
+    taxonomy: rules.taxonomy,
+    rules,
+    report: {
+      title: `${sourceConfig.game?.name || "New Game"} Daily Risk Brief`,
+      subtitle: `Sources: ${sourceConfig.sourcesLabel || "Not configured"}`,
+      executiveSummary: "No source configured yet.",
+      executiveDetail: "Add a subreddit or other source later, and the whole dashboard can be reused without rebuilding the site.",
+      metrics: [
+        { label: "Overall risk", value: 0, hint: "green" },
+        { label: "Negative items", value: 0, hint: "negative submissions/comments" },
+        { label: "Active alerts", value: 0, hint: "high-risk or accelerating topics" },
+        { label: "Discussion heat", value: 0, hint: "score + comments" },
+      ],
+      topTopics: [],
+      actions: [],
+      featuredPosts: [],
+    },
+    reviewQueue: [],
+    reviewActions: [],
+  };
 }
 
 function getTopicSignalSummary(topicKey, rawPosts, rules = getRules()) {
@@ -873,14 +999,20 @@ async function fetchRedditComments(permalink, commentsPerPost, options = {}) {
   throw lastError || new Error(`Failed to fetch Reddit comments for ${permalink}`);
 }
 
-async function getRedditFeedback({ force = false, existingSubmissionIds = null, mode = "light" } = {}) {
+async function getRedditFeedback({
+  force = false,
+  existingSubmissionIds = null,
+  mode = "light",
+  gameKey = DEFAULT_GAME_KEY,
+} = {}) {
   const state = getState();
-  const sources = await readSources();
+  const normalizedGameKey = normalizeGameKey(gameKey);
+  const sources = await readSourceConfig(gameKey);
   const store = await hydrateStateFromStore();
   const volatileRuntime = isVolatileVercelRuntime();
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
-  if (!force && state.cache.raw && Date.now() - state.cache.rawAt < ttlMs) {
+  if (!force && state.cache.raw && state.cache.rawGameKey === normalizedGameKey && Date.now() - state.cache.rawAt < ttlMs) {
     return state.cache.raw;
   }
 
@@ -890,6 +1022,7 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null, 
   if (!force && isVolatileVercelRuntime() && persistedRaw.length) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();
+    state.cache.rawGameKey = normalizedGameKey;
     return persistedRaw;
   }
 
@@ -897,12 +1030,14 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null, 
     const fallback = getFallbackRawPosts();
     state.cache.raw = fallback;
     state.cache.rawAt = Date.now();
+    state.cache.rawGameKey = normalizedGameKey;
     return fallback;
   }
 
   if (!force && persistedRaw.length && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();
+    state.cache.rawGameKey = normalizedGameKey;
     return persistedRaw;
   }
 
@@ -1055,12 +1190,14 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null, 
     if (persistedRaw.length) {
       state.cache.raw = persistedRaw;
       state.cache.rawAt = Date.now();
+      state.cache.rawGameKey = normalizedGameKey;
       return persistedRaw;
     }
 
     const fallback = getFallbackRawPosts();
     state.cache.raw = fallback;
     state.cache.rawAt = Date.now();
+    state.cache.rawGameKey = normalizedGameKey;
     return fallback;
   }
 
@@ -1073,6 +1210,7 @@ async function getRedditFeedback({ force = false, existingSubmissionIds = null, 
 
   state.cache.raw = deduped;
   state.cache.rawAt = Date.now();
+  state.cache.rawGameKey = normalizedGameKey;
   return deduped;
 }
 
@@ -1242,9 +1380,23 @@ function hasUsablePrecomputedDataset(store) {
   return true;
 }
 
-async function buildDataset({ force = false, rawPostsOverride = null, storeOverride = null, persist = true, lastSyncAtOverride = null } = {}) {
+async function buildDataset({
+  force = false,
+  rawPostsOverride = null,
+  storeOverride = null,
+  persist = true,
+  lastSyncAtOverride = null,
+  gameKey = DEFAULT_GAME_KEY,
+} = {}) {
   const state = getState();
-  const sources = await readSources();
+  const normalizedGameKey = normalizeGameKey(gameKey);
+  const sources = await readSourceConfig(gameKey);
+  const rules = getRules();
+
+  if (sources.game?.placeholder) {
+    return buildPlaceholderDataset(sources, rules, lastSyncAtOverride);
+  }
+
   const store = storeOverride ? normalizeStoreShape(storeOverride) : await hydrateStateFromStore();
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
   const lookbackDays = Number(sources.lookbackDays || 3);
@@ -1255,18 +1407,32 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
     isVolatileVercelRuntime() &&
     shouldBackfillComments(store.raw_posts, lookbackDays);
 
-  if (!force && !sparseCommentRecovery && !rawPostsOverride && !storeOverride && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
+  if (
+    !force &&
+    !sparseCommentRecovery &&
+    !rawPostsOverride &&
+    !storeOverride &&
+    state.cache.dataset &&
+    state.cache.datasetGameKey === normalizedGameKey &&
+    Date.now() - state.cache.datasetAt < ttlMs
+  ) {
     return state.cache.dataset;
   }
 
   if (!force && !sparseCommentRecovery && !rawPostsOverride && hasUsablePrecomputedDataset(store)) {
     state.cache.dataset = store.precomputed_dataset;
     state.cache.datasetAt = Date.now();
+    state.cache.datasetGameKey = normalizedGameKey;
     return store.precomputed_dataset;
   }
 
-  const rules = getRules();
-  const rawPosts = Array.isArray(rawPostsOverride) ? rawPostsOverride : await getRedditFeedback({ force: force || sparseCommentRecovery });
+  const rawPosts = Array.isArray(rawPostsOverride)
+    ? rawPostsOverride
+    : await getRedditFeedback({
+        force: force || sparseCommentRecovery,
+        mode: force ? "full" : "light",
+        gameKey,
+      });
   const reviewLabels = Array.isArray(store.review_labels) ? store.review_labels : [];
   const reviewMap = new Map(reviewLabels.map((item) => [item.postId, item]));
 
@@ -1419,6 +1585,8 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
 
   const overview = {
     game: sources.game?.name || "Game",
+    displayName: sources.game?.displayName || sources.game?.name || "Game",
+    gameKey: sources.game?.key || DEFAULT_GAME_KEY,
     sources: (sources.subreddits || []).map((item) => `r/${item}`),
     riskScore: overviewScore,
     riskLevel: overviewRiskLevel,
@@ -1523,11 +1691,20 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
   }
   state.cache.dataset = dataset;
   state.cache.datasetAt = Date.now();
+  state.cache.datasetGameKey = normalizedGameKey;
   return dataset;
 }
 
-async function syncLiveDataset(mode = "light") {
-  const sources = await readSources();
+async function syncLiveDataset(gameKey = DEFAULT_GAME_KEY, mode = "light") {
+  const sources = await readSourceConfig(gameKey);
+  if (sources.game?.placeholder) {
+    return buildDataset({
+      force: false,
+      persist: false,
+      gameKey,
+      lastSyncAtOverride: new Date().toISOString(),
+    });
+  }
   const lookbackDays = Number(sources.lookbackDays || 3);
   const store = await hydrateStateFromStore();
   const existingRawPosts = pruneRawPostsToLookback(Array.isArray(store.raw_posts) ? store.raw_posts : [], lookbackDays);
@@ -1541,7 +1718,12 @@ async function syncLiveDataset(mode = "light") {
   forceRefresh();
   const effectiveMode =
     mode === "full" || shouldPreferFullBackfill(existingRawPosts, lookbackDays) ? "full" : "light";
-  const liveRawPosts = await getRedditFeedback({ force: true, existingSubmissionIds, mode: effectiveMode });
+  const liveRawPosts = await getRedditFeedback({
+    force: true,
+    existingSubmissionIds,
+    mode: effectiveMode,
+    gameKey,
+  });
   const mergedRawPosts = protectCommentCoverage(
     existingRawPosts,
     mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays),
@@ -1555,6 +1737,7 @@ async function syncLiveDataset(mode = "light") {
     storeOverride: store,
     persist: true,
     lastSyncAtOverride: syncedAt,
+    gameKey,
   });
 }
 
@@ -1586,6 +1769,7 @@ async function setRules(payload) {
   });
   state.cache.dataset = null;
   state.cache.datasetAt = 0;
+  state.cache.datasetGameKey = null;
   return { ok: true, rules: state.rules };
 }
 
@@ -1612,6 +1796,7 @@ async function saveReviewLabel(payload) {
   });
   state.cache.dataset = null;
   state.cache.datasetAt = 0;
+  state.cache.datasetGameKey = null;
   return { ok: true };
 }
 
@@ -1621,11 +1806,13 @@ function forceRefresh() {
   state.cache.dataset = null;
   state.cache.rawAt = 0;
   state.cache.datasetAt = 0;
+  state.cache.rawGameKey = null;
+  state.cache.datasetGameKey = null;
   state.store = null;
 }
 
 async function getPostsResponse(query = {}) {
-  const dataset = await buildDataset({ persist: false });
+  const dataset = await buildDataset({ persist: false, gameKey: query.game || DEFAULT_GAME_KEY });
   const topic = query.topic || "all";
   const sentiment = query.sentiment || "all";
   const risk = query.risk || "all";

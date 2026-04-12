@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
   try {
     const mode =
       String(req.query?.mode || req.body?.mode || "light").toLowerCase() === "full" ? "full" : "light";
-    const dataset = await syncLiveDataset(mode);
+    const dataset = await syncLiveDataset(req.query?.game, mode);
     return sendJson(res, 200, {
       ok: true,
       result: {

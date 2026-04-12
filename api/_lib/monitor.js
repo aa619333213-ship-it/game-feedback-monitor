@@ -1171,19 +1171,26 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
   const sources = await readSources();
   const store = storeOverride ? normalizeStoreShape(storeOverride) : await hydrateStateFromStore();
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
+  const lookbackDays = Number(sources.lookbackDays || 3);
+  const sparseCommentRecovery =
+    !force &&
+    !rawPostsOverride &&
+    !storeOverride &&
+    isVolatileVercelRuntime() &&
+    shouldBackfillComments(store.raw_posts, lookbackDays);
 
-  if (!force && !rawPostsOverride && !storeOverride && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
+  if (!force && !sparseCommentRecovery && !rawPostsOverride && !storeOverride && state.cache.dataset && Date.now() - state.cache.datasetAt < ttlMs) {
     return state.cache.dataset;
   }
 
-  if (!force && !rawPostsOverride && hasUsablePrecomputedDataset(store)) {
+  if (!force && !sparseCommentRecovery && !rawPostsOverride && hasUsablePrecomputedDataset(store)) {
     state.cache.dataset = store.precomputed_dataset;
     state.cache.datasetAt = Date.now();
     return store.precomputed_dataset;
   }
 
   const rules = getRules();
-  const rawPosts = Array.isArray(rawPostsOverride) ? rawPostsOverride : await getRedditFeedback({ force });
+  const rawPosts = Array.isArray(rawPostsOverride) ? rawPostsOverride : await getRedditFeedback({ force: force || sparseCommentRecovery });
   const reviewLabels = Array.isArray(store.review_labels) ? store.review_labels : [];
   const reviewMap = new Map(reviewLabels.map((item) => [item.postId, item]));
 

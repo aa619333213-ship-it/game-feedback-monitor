@@ -1138,6 +1138,21 @@ function buildAlerts(issues) {
     }));
 }
 
+function hasUsablePrecomputedDataset(store) {
+  const dataset = store?.precomputed_dataset;
+  if (!dataset || typeof dataset !== "object") return false;
+  if (!dataset.overview || typeof dataset.overview !== "object") return false;
+  if (!Array.isArray(dataset.posts)) return false;
+
+  const rawCount = Array.isArray(store?.raw_posts) ? store.raw_posts.length : 0;
+  const overviewTotal = Number(dataset.overview.totalPosts || 0);
+
+  if (rawCount > 0 && dataset.posts.length === 0) return false;
+  if (overviewTotal > 0 && dataset.posts.length === 0) return false;
+
+  return true;
+}
+
 async function buildDataset({ force = false, rawPostsOverride = null, storeOverride = null, persist = true, lastSyncAtOverride = null } = {}) {
   const state = getState();
   const sources = await readSources();
@@ -1148,7 +1163,7 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
     return state.cache.dataset;
   }
 
-  if (!force && !rawPostsOverride && store.precomputed_dataset && typeof store.precomputed_dataset === "object") {
+  if (!force && !rawPostsOverride && hasUsablePrecomputedDataset(store)) {
     state.cache.dataset = store.precomputed_dataset;
     state.cache.datasetAt = Date.now();
     return store.precomputed_dataset;
@@ -1393,6 +1408,22 @@ async function buildDataset({ force = false, rawPostsOverride = null, storeOverr
       rule_config: rules,
     });
     await saveStore(persistedStore);
+  } else if (!rawPostsOverride && !storeOverride && !hasUsablePrecomputedDataset(store)) {
+    try {
+      const healedStore = normalizeStoreShape({
+        ...store,
+        analyzed_feedback: analysisItems,
+        precomputed_dataset: dataset,
+        meta: {
+          ...(store.meta || {}),
+          lastSyncAt,
+          game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
+        },
+      });
+      await saveStore(healedStore);
+    } catch (error) {
+      console.error("Failed to heal persisted dataset snapshot", error);
+    }
   }
   state.cache.dataset = dataset;
   state.cache.datasetAt = Date.now();

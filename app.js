@@ -70,7 +70,7 @@
   };
 
   async function init() {
-    state.games = await App.fetchApi("/api/games");
+    state.games = App.getGameCatalog ? App.getGameCatalog() : [];
     renderGameSwitcher();
     updateNavLinks();
     if (els.contentTypeFilter) {

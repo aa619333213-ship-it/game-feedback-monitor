@@ -17,7 +17,7 @@
   };
 
   async function init() {
-    renderGameSwitcher(await App.fetchApi("/api/games"));
+    renderGameSwitcher(App.getGameCatalog ? App.getGameCatalog() : []);
     updateNavLinks();
     const report = await App.fetchApi("/api/reports/daily");
     renderReport(report);

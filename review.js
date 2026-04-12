@@ -19,7 +19,7 @@
   };
 
   async function init() {
-    renderGameSwitcher(await App.fetchApi("/api/games"));
+    renderGameSwitcher(App.getGameCatalog ? App.getGameCatalog() : []);
     updateNavLinks();
     await renderPage();
     bindRuleForm();

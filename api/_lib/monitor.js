@@ -1176,6 +1176,33 @@ function mergeRawPosts(existingRawPosts, incomingRawPosts, lookbackDays = 3) {
   return [...merged.values()].sort((a, b) => new Date(b.created_at_source) - new Date(a.created_at_source));
 }
 
+function protectCommentCoverage(existingRawPosts, mergedRawPosts, lookbackDays = 3, mode = "light") {
+  const normalizedMode = mode === "full" ? "full" : "light";
+  const existingRecent = pruneRawPostsToLookback(existingRawPosts, lookbackDays);
+  const mergedRecent = pruneRawPostsToLookback(mergedRawPosts, lookbackDays);
+  const existingComments = existingRecent.filter((item) => item.post_type === "comment");
+  const mergedComments = mergedRecent.filter((item) => item.post_type === "comment");
+
+  if (!existingComments.length) {
+    return mergedRecent;
+  }
+
+  if (mergedComments.length >= existingComments.length) {
+    return mergedRecent;
+  }
+
+  const protectedMap = new Map(mergedRecent.map((item) => [item.external_id, item]));
+  for (const comment of existingComments) {
+    protectedMap.set(comment.external_id, comment);
+  }
+
+  const protectedItems = [...protectedMap.values()].sort((a, b) => new Date(b.created_at_source) - new Date(a.created_at_source));
+  console.log(
+    `Protected ${existingComments.length - mergedComments.length} historical comments from ${normalizedMode} sync overwrite risk.`
+  );
+  return protectedItems;
+}
+
 function buildAlerts(issues) {
   const today = new Date().toISOString().slice(0, 10);
   return issues
@@ -1515,7 +1542,12 @@ async function syncLiveDataset(mode = "light") {
   const effectiveMode =
     mode === "full" || shouldPreferFullBackfill(existingRawPosts, lookbackDays) ? "full" : "light";
   const liveRawPosts = await getRedditFeedback({ force: true, existingSubmissionIds, mode: effectiveMode });
-  const mergedRawPosts = pruneRawPostsToLookback(mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays), lookbackDays);
+  const mergedRawPosts = protectCommentCoverage(
+    existingRawPosts,
+    mergeRawPosts(existingRawPosts, liveRawPosts, lookbackDays),
+    lookbackDays,
+    effectiveMode
+  );
 
   return buildDataset({
     force: false,

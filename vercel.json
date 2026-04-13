@@ -1,4 +1,7 @@
 {
+  "crons": [
+    { "path": "/api/cron/sync", "schedule": "0 * * * *" }
+  ],
   "rewrites": [
     { "source": "/rok", "destination": "/index.html?game=rise-of-kingdoms" },
     { "source": "/rok/reports", "destination": "/reports.html?game=rise-of-kingdoms" },

@@ -5,6 +5,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 const LOCAL_STORE_PATH = path.join(ROOT, "data", "store.json");
 const SEED_STORE_PATH = path.join(ROOT, "data", "store.seed.json");
 const STORE_BLOB_PATH = "game-feedback-monitor/store.json";
+const REMOTE_SEED_CONTENTS_URL =
+  "https://api.github.com/repos/aa619333213-ship-it/game-feedback-monitor/contents/data/store.seed.json?ref=monitor-data";
 const REMOTE_SEED_URL =
   "https://raw.githubusercontent.com/aa619333213-ship-it/game-feedback-monitor/monitor-data/data/store.seed.json";
 
@@ -105,6 +107,42 @@ async function readStoreFromBlob() {
   return null;
 }
 
+async function fetchRemoteSeedFromContentsApi() {
+  const response = await fetch(`${REMOTE_SEED_CONTENTS_URL}&ts=${Date.now()}`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(5000),
+    headers: {
+      "User-Agent": "GameFeedbackMonitor/1.0",
+      Accept: "application/vnd.github+json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch remote seed contents: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const content = String(payload?.content || "").replace(/\s+/g, "");
+  if (!content) {
+    throw new Error("Remote seed contents payload did not include file content");
+  }
+
+  return JSON.parse(Buffer.from(content, "base64").toString("utf8"));
+}
+
+async function fetchRemoteSeedFromRaw() {
+  const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(4000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch remote seed raw file: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 async function writeStoreToBlob(value) {
   const { del, put } = require("@vercel/blob");
   try {
@@ -164,16 +202,17 @@ async function readPersistentStore() {
     }
 
     try {
-      const response = await fetch(`${REMOTE_SEED_URL}?ts=${Date.now()}`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(4000),
-      });
-      if (response.ok) {
-        const remoteSeed = await response.json();
-        cache.value = remoteSeed;
-        cache.at = Date.now();
-        return remoteSeed;
-      }
+      const remoteSeed = await fetchRemoteSeedFromContentsApi();
+      cache.value = remoteSeed;
+      cache.at = Date.now();
+      return remoteSeed;
+    } catch {}
+
+    try {
+      const remoteSeed = await fetchRemoteSeedFromRaw();
+      cache.value = remoteSeed;
+      cache.at = Date.now();
+      return remoteSeed;
     } catch {}
   }
 

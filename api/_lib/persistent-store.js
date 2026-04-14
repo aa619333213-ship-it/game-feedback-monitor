@@ -8,6 +8,11 @@ const STORE_BLOB_PATH = "game-feedback-monitor/store.json";
 const REMOTE_SEED_URL =
   "https://raw.githubusercontent.com/aa619333213-ship-it/game-feedback-monitor/monitor-data/data/store.seed.json";
 
+function isBlobUnavailableError(error) {
+  const message = String(error?.message || error || "");
+  return /blob/i.test(message) && /(suspended|401|403|404|forbidden|unauthorized|not found)/i.test(message);
+}
+
 function isVercelRuntime() {
   return Boolean(process.env.VERCEL);
 }
@@ -83,6 +88,10 @@ async function readStoreFromBlob() {
   try {
     blobs = await listBlobCandidates();
   } catch (error) {
+    if (isBlobUnavailableError(error)) {
+      console.warn("Blob store unavailable, falling back to seed-backed storage.");
+      return null;
+    }
     console.error("Failed to list persisted blob store", error);
     return null;
   }
@@ -98,15 +107,25 @@ async function readStoreFromBlob() {
 
 async function writeStoreToBlob(value) {
   const { del, put } = require("@vercel/blob");
-  const blobs = await listBlobCandidates();
-  if (blobs.length) {
-    await del(blobs.map((item) => item.url));
+  try {
+    const blobs = await listBlobCandidates();
+    if (blobs.length) {
+      await del(blobs.map((item) => item.url));
+    }
+    await put(STORE_BLOB_PATH, JSON.stringify(value, null, 2), {
+      access: "private",
+      addRandomSuffix: false,
+      contentType: "application/json; charset=utf-8",
+    });
+  } catch (error) {
+    if (isBlobUnavailableError(error)) {
+      console.warn("Blob store unavailable during write, falling back to non-blob persistence.");
+      return false;
+    }
+    throw error;
   }
-  await put(STORE_BLOB_PATH, JSON.stringify(value, null, 2), {
-    access: "private",
-    addRandomSuffix: false,
-    contentType: "application/json; charset=utf-8",
-  });
+
+  return true;
 }
 
 async function seedBlobStoreIfNeeded() {
@@ -115,12 +134,17 @@ async function seedBlobStoreIfNeeded() {
   try {
     existing = await readStoreFromBlob();
   } catch (error) {
+    if (isBlobUnavailableError(error)) {
+      console.warn("Blob store unavailable during seed check, falling back to seed-backed storage.");
+      return null;
+    }
     console.error("Failed to read persisted blob store before seeding", error);
   }
   if (existing) return existing;
   try {
     const seed = await readJsonFile(SEED_STORE_PATH);
-    await writeStoreToBlob(seed);
+    const wrote = await writeStoreToBlob(seed);
+    if (!wrote) return null;
     return seed;
   } catch {
     return null;
@@ -166,8 +190,10 @@ async function readPersistentStore() {
 
 async function writePersistentStore(value) {
   if (hasBlobStorage()) {
-    await writeStoreToBlob(value);
-    return { provider: "blob" };
+    const wrote = await writeStoreToBlob(value);
+    if (wrote) {
+      return { provider: "blob" };
+    }
   }
 
   if (!isVercelRuntime()) {

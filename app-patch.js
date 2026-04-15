@@ -1,10 +1,25 @@
 (function () {
-  const LATEST_OVERVIEW_KEY = "gfm-last-sync-overview";
-  const LATEST_DATASET_KEY = "gfm-latest-dashboard-dataset";
+  const LATEST_OVERVIEW_KEY_PREFIX = "gfm-last-sync-overview";
+  const LATEST_DATASET_KEY_PREFIX = "gfm-latest-dashboard-dataset";
+
+  function getCurrentGameKey() {
+    if (window.GameFeedbackMonitor && typeof window.GameFeedbackMonitor.getCurrentGameKey === "function") {
+      return window.GameFeedbackMonitor.getCurrentGameKey();
+    }
+    return "rise-of-kingdoms";
+  }
+
+  function getLatestOverviewKey() {
+    return `${LATEST_OVERVIEW_KEY_PREFIX}:${getCurrentGameKey()}`;
+  }
+
+  function getLatestDatasetKey() {
+    return `${LATEST_DATASET_KEY_PREFIX}:${getCurrentGameKey()}`;
+  }
 
   function readLatestOverview() {
     try {
-      const raw = window.localStorage.getItem(LATEST_OVERVIEW_KEY);
+      const raw = window.localStorage.getItem(getLatestOverviewKey());
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -14,14 +29,14 @@
   function saveLatestOverview(overview) {
     if (!overview) return;
     try {
-      window.localStorage.setItem(LATEST_OVERVIEW_KEY, JSON.stringify(overview));
+      window.localStorage.setItem(getLatestOverviewKey(), JSON.stringify(overview));
     } catch {}
   }
 
   function saveLatestDataset(dataset) {
     if (!dataset || !dataset.overview || !Array.isArray(dataset.posts)) return;
     try {
-      window.localStorage.setItem(LATEST_DATASET_KEY, JSON.stringify(dataset));
+      window.localStorage.setItem(getLatestDatasetKey(), JSON.stringify(dataset));
     } catch {}
   }
 

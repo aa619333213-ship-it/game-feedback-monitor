@@ -65,6 +65,7 @@ function createEmptyStore() {
     precomputed_dataset: null,
     meta: {
       lastSyncAt: null,
+      gameKey: DEFAULT_GAME_KEY,
       game: "Rise of Kingdoms",
     },
     risk_daily_snapshot: [],
@@ -1018,8 +1019,9 @@ async function getRedditFeedback({
 
   const persistedRaw = Array.isArray(store.raw_posts) ? store.raw_posts : [];
   const lastSyncMs = store.meta?.lastSyncAt ? new Date(store.meta.lastSyncAt).getTime() : 0;
+  const canReusePersistedRaw = persistedRaw.length > 0 && storeMatchesRequestedGame(store, normalizedGameKey);
 
-  if (!force && isVolatileVercelRuntime() && persistedRaw.length) {
+  if (!force && isVolatileVercelRuntime() && canReusePersistedRaw) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();
     state.cache.rawGameKey = normalizedGameKey;
@@ -1034,7 +1036,7 @@ async function getRedditFeedback({
     return fallback;
   }
 
-  if (!force && persistedRaw.length && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
+  if (!force && canReusePersistedRaw && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();
     state.cache.rawGameKey = normalizedGameKey;
@@ -1187,7 +1189,7 @@ async function getRedditFeedback({
     }
   } catch (error) {
     console.error("Falling back from live Reddit fetch", error);
-    if (persistedRaw.length) {
+    if (canReusePersistedRaw) {
       state.cache.raw = persistedRaw;
       state.cache.rawAt = Date.now();
       state.cache.rawGameKey = normalizedGameKey;
@@ -1365,11 +1367,24 @@ function buildAlerts(issues) {
     }));
 }
 
-function hasUsablePrecomputedDataset(store) {
+function getStoreGameKey(store) {
+  return normalizeGameKey(
+    store?.precomputed_dataset?.overview?.gameKey ||
+    store?.meta?.gameKey ||
+    DEFAULT_GAME_KEY
+  );
+}
+
+function storeMatchesRequestedGame(store, requestedGameKey = DEFAULT_GAME_KEY) {
+  return getStoreGameKey(store) === normalizeGameKey(requestedGameKey);
+}
+
+function hasUsablePrecomputedDataset(store, requestedGameKey = DEFAULT_GAME_KEY) {
   const dataset = store?.precomputed_dataset;
   if (!dataset || typeof dataset !== "object") return false;
   if (!dataset.overview || typeof dataset.overview !== "object") return false;
   if (!Array.isArray(dataset.posts)) return false;
+  if (!storeMatchesRequestedGame(store, requestedGameKey)) return false;
 
   const rawCount = Array.isArray(store?.raw_posts) ? store.raw_posts.length : 0;
   const overviewTotal = Number(dataset.overview.totalPosts || 0);
@@ -1419,7 +1434,7 @@ async function buildDataset({
     return state.cache.dataset;
   }
 
-  if (!force && !sparseCommentRecovery && !rawPostsOverride && hasUsablePrecomputedDataset(store)) {
+  if (!force && !sparseCommentRecovery && !rawPostsOverride && hasUsablePrecomputedDataset(store, normalizedGameKey)) {
     state.cache.dataset = store.precomputed_dataset;
     state.cache.datasetAt = Date.now();
     state.cache.datasetGameKey = normalizedGameKey;
@@ -1654,6 +1669,7 @@ async function buildDataset({
       meta: {
         ...(store.meta || {}),
         lastSyncAt,
+        gameKey: normalizedGameKey,
         game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
       },
       risk_daily_snapshot: issues.map((issue) => ({
@@ -1672,7 +1688,7 @@ async function buildDataset({
       rule_config: rules,
     });
     await saveStore(persistedStore);
-  } else if (!rawPostsOverride && !storeOverride && !hasUsablePrecomputedDataset(store)) {
+  } else if (!rawPostsOverride && !storeOverride && !hasUsablePrecomputedDataset(store, normalizedGameKey)) {
     try {
       const healedStore = normalizeStoreShape({
         ...store,
@@ -1681,6 +1697,7 @@ async function buildDataset({
         meta: {
           ...(store.meta || {}),
           lastSyncAt,
+          gameKey: normalizedGameKey,
           game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
         },
       });

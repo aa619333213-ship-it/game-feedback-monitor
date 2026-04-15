@@ -15,10 +15,10 @@
     {
       key: "new-game",
       slug: "new-game",
-      name: "New Game",
-      displayName: "New Game",
-      sourcesLabel: "待配置数据源",
-      placeholder: true,
+      name: "Lords Mobile",
+      displayName: "王国纪元",
+      sourcesLabel: "r/lordsmobile",
+      placeholder: false,
     },
   ];
 

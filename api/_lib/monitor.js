@@ -1009,7 +1009,8 @@ async function getRedditFeedback({
   const state = getState();
   const normalizedGameKey = normalizeGameKey(gameKey);
   const sources = await readSourceConfig(gameKey);
-  const store = await hydrateStateFromStore();
+  const baseStore = await hydrateStateFromStore();
+  const store = getScopedStore(baseStore, normalizedGameKey);
   const volatileRuntime = isVolatileVercelRuntime();
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
@@ -1379,6 +1380,21 @@ function storeMatchesRequestedGame(store, requestedGameKey = DEFAULT_GAME_KEY) {
   return getStoreGameKey(store) === normalizeGameKey(requestedGameKey);
 }
 
+function usesSharedPersistentStore(gameKey = DEFAULT_GAME_KEY) {
+  return normalizeGameKey(gameKey) === DEFAULT_GAME_KEY;
+}
+
+function getScopedStore(baseStore, gameKey = DEFAULT_GAME_KEY) {
+  if (usesSharedPersistentStore(gameKey)) {
+    return normalizeStoreShape(baseStore);
+  }
+
+  return normalizeStoreShape({
+    rule_config: baseStore?.rule_config,
+    review_labels: baseStore?.review_labels,
+  });
+}
+
 function hasUsablePrecomputedDataset(store, requestedGameKey = DEFAULT_GAME_KEY) {
   const dataset = store?.precomputed_dataset;
   if (!dataset || typeof dataset !== "object") return false;
@@ -1412,7 +1428,8 @@ async function buildDataset({
     return buildPlaceholderDataset(sources, rules, lastSyncAtOverride);
   }
 
-  const store = storeOverride ? normalizeStoreShape(storeOverride) : await hydrateStateFromStore();
+  const hydratedStore = storeOverride ? normalizeStoreShape(storeOverride) : await hydrateStateFromStore();
+  const store = getScopedStore(hydratedStore, normalizedGameKey);
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
   const lookbackDays = Number(sources.lookbackDays || 3);
   const sparseCommentRecovery =
@@ -1660,9 +1677,9 @@ async function buildDataset({
     reviewActions: reviewLabels,
   };
 
-  if (persist) {
+  if (persist && usesSharedPersistentStore(normalizedGameKey)) {
     const persistedStore = normalizeStoreShape({
-      ...store,
+      ...hydratedStore,
       raw_posts: rawPosts,
       analyzed_feedback: analysisItems,
       precomputed_dataset: dataset,
@@ -1688,10 +1705,15 @@ async function buildDataset({
       rule_config: rules,
     });
     await saveStore(persistedStore);
-  } else if (!rawPostsOverride && !storeOverride && !hasUsablePrecomputedDataset(store, normalizedGameKey)) {
+  } else if (
+    usesSharedPersistentStore(normalizedGameKey) &&
+    !rawPostsOverride &&
+    !storeOverride &&
+    !hasUsablePrecomputedDataset(store, normalizedGameKey)
+  ) {
     try {
       const healedStore = normalizeStoreShape({
-        ...store,
+        ...hydratedStore,
         analyzed_feedback: analysisItems,
         precomputed_dataset: dataset,
         meta: {
@@ -1714,6 +1736,7 @@ async function buildDataset({
 
 async function syncLiveDataset(gameKey = DEFAULT_GAME_KEY, mode = "light") {
   const sources = await readSourceConfig(gameKey);
+  const normalizedGameKey = normalizeGameKey(gameKey);
   if (sources.game?.placeholder) {
     return buildDataset({
       force: false,
@@ -1723,7 +1746,8 @@ async function syncLiveDataset(gameKey = DEFAULT_GAME_KEY, mode = "light") {
     });
   }
   const lookbackDays = Number(sources.lookbackDays || 3);
-  const store = await hydrateStateFromStore();
+  const hydratedStore = await hydrateStateFromStore();
+  const store = getScopedStore(hydratedStore, normalizedGameKey);
   const existingRawPosts = pruneRawPostsToLookback(Array.isArray(store.raw_posts) ? store.raw_posts : [], lookbackDays);
   const existingSubmissionIds = new Set(
     existingRawPosts
@@ -1751,8 +1775,8 @@ async function syncLiveDataset(gameKey = DEFAULT_GAME_KEY, mode = "light") {
   return buildDataset({
     force: false,
     rawPostsOverride: mergedRawPosts,
-    storeOverride: store,
-    persist: true,
+    storeOverride: hydratedStore,
+    persist: usesSharedPersistentStore(normalizedGameKey),
     lastSyncAtOverride: syncedAt,
     gameKey,
   });

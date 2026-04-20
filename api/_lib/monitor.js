@@ -1,6 +1,6 @@
 const fs = require("node:fs/promises");
 const path = require("node:path");
-const { hasBlobStorage, readPersistentStore, writePersistentStore } = require("./persistent-store");
+const { hasBlobStorage, readPersistentStore, writePersistentStore, getLastPersistentStoreMeta } = require("./persistent-store");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SOURCES_PATH = path.join(ROOT, "data", "sources.json");
@@ -47,7 +47,10 @@ function getState() {
         datasetAt: 0,
         rawGameKey: null,
         datasetGameKey: null,
+        rawSource: null,
+        datasetSource: null,
       },
+      storeSource: null,
     };
   }
 
@@ -56,6 +59,27 @@ function getState() {
 
 function isVolatileVercelRuntime() {
   return Boolean(process.env.VERCEL) && !hasBlobStorage();
+}
+
+function createSourceDescriptor(code, label, detail = "") {
+  return { code, label, detail };
+}
+
+function attachOverviewSource(dataset, state, datasetSourceOverride = null) {
+  if (!dataset || !dataset.overview) return dataset;
+
+  const previous = dataset.overview.dataSource || {};
+  dataset.overview.dataSource = {
+    store: state.storeSource || previous.store || createSourceDescriptor("unknown-store", "Unknown store source", ""),
+    raw: state.cache.rawSource || previous.raw || createSourceDescriptor("unknown-raw", "Unknown raw source", ""),
+    dataset:
+      datasetSourceOverride ||
+      state.cache.datasetSource ||
+      previous.dataset ||
+      createSourceDescriptor("unknown-dataset", "Unknown dataset source", ""),
+  };
+
+  return dataset;
 }
 
 function createEmptyStore() {
@@ -114,6 +138,7 @@ async function getStore() {
   }
 
   const persisted = await readPersistentStore();
+  state.storeSource = getLastPersistentStoreMeta();
   const normalized = normalizeStoreShape(persisted);
   if (!isVolatileVercelRuntime()) {
     state.store = normalized;
@@ -125,6 +150,7 @@ async function saveStore(nextStore) {
   const state = getState();
   state.store = normalizeStoreShape(nextStore);
   await writePersistentStore(state.store);
+  state.storeSource = getLastPersistentStoreMeta();
   return state.store;
 }
 
@@ -509,6 +535,11 @@ function getFallbackRawPosts() {
 
 function buildPlaceholderDataset(sourceConfig, rules, lastSyncAtOverride = null) {
   const lastSyncAt = lastSyncAtOverride || null;
+  const sourceMeta = {
+    store: createSourceDescriptor("placeholder", "Placeholder game", "This game has not been wired to a real source yet."),
+    raw: createSourceDescriptor("placeholder", "No raw posts", "No collection source is configured for this game."),
+    dataset: createSourceDescriptor("placeholder", "Placeholder dataset", "The page is showing a reusable empty-state dataset."),
+  };
   return {
     overview: {
       game: sourceConfig.game?.name || "New Game",
@@ -536,6 +567,7 @@ function buildPlaceholderDataset(sourceConfig, rules, lastSyncAtOverride = null)
       executiveSummary: "This game has no source configured yet.",
       lastSyncAt,
       placeholder: true,
+      dataSource: sourceMeta,
     },
     issues: [],
     posts: [],
@@ -1015,6 +1047,7 @@ async function getRedditFeedback({
   const ttlMs = isVolatileVercelRuntime() ? 0 : Math.max(1, Number(sources.syncIntervalMinutes || 30)) * 60 * 1000;
 
   if (!force && state.cache.raw && state.cache.rawGameKey === normalizedGameKey && Date.now() - state.cache.rawAt < ttlMs) {
+    state.cache.rawSource = createSourceDescriptor("server-memory-raw-cache", "Server raw cache", "Reused recent raw posts from in-memory server cache.");
     return state.cache.raw;
   }
 
@@ -1026,6 +1059,7 @@ async function getRedditFeedback({
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();
     state.cache.rawGameKey = normalizedGameKey;
+    state.cache.rawSource = createSourceDescriptor("persisted-raw", "Persisted raw posts", "Used raw posts that were already available in persistent storage.");
     return persistedRaw;
   }
 
@@ -1034,6 +1068,7 @@ async function getRedditFeedback({
     state.cache.raw = fallback;
     state.cache.rawAt = Date.now();
     state.cache.rawGameKey = normalizedGameKey;
+    state.cache.rawSource = createSourceDescriptor("fallback-sample", "Built-in fallback sample", "Used bundled sample posts because no persisted raw data was available.");
     return fallback;
   }
 
@@ -1041,6 +1076,7 @@ async function getRedditFeedback({
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();
     state.cache.rawGameKey = normalizedGameKey;
+    state.cache.rawSource = createSourceDescriptor("persisted-raw", "Persisted raw posts", "Reused raw posts from persistent storage because they are still fresh.");
     return persistedRaw;
   }
 
@@ -1194,6 +1230,7 @@ async function getRedditFeedback({
       state.cache.raw = persistedRaw;
       state.cache.rawAt = Date.now();
       state.cache.rawGameKey = normalizedGameKey;
+      state.cache.rawSource = createSourceDescriptor("persisted-raw-on-error", "Persisted raw posts", "Live fetch failed, so the server fell back to persisted raw posts.");
       return persistedRaw;
     }
 
@@ -1201,6 +1238,7 @@ async function getRedditFeedback({
     state.cache.raw = fallback;
     state.cache.rawAt = Date.now();
     state.cache.rawGameKey = normalizedGameKey;
+    state.cache.rawSource = createSourceDescriptor("fallback-sample-on-error", "Built-in fallback sample", "Live fetch failed and no persisted raw posts were available.");
     return fallback;
   }
 
@@ -1214,6 +1252,7 @@ async function getRedditFeedback({
   state.cache.raw = deduped;
   state.cache.rawAt = Date.now();
   state.cache.rawGameKey = normalizedGameKey;
+  state.cache.rawSource = createSourceDescriptor("live-reddit", "Live Reddit fetch", "Fetched fresh Reddit posts during this request.");
   return deduped;
 }
 
@@ -1448,14 +1487,22 @@ async function buildDataset({
     state.cache.datasetGameKey === normalizedGameKey &&
     Date.now() - state.cache.datasetAt < ttlMs
   ) {
-    return state.cache.dataset;
+    state.cache.datasetSource = createSourceDescriptor("server-memory-dataset-cache", "Server dataset cache", "Reused a recently built dataset from in-memory server cache.");
+    if (!state.cache.rawSource && Array.isArray(state.cache.raw) && state.cache.raw.length) {
+      state.cache.rawSource = createSourceDescriptor("server-memory-raw-cache", "Server raw cache", "Reused recent raw posts from in-memory server cache.");
+    }
+    return attachOverviewSource(state.cache.dataset, state, state.cache.datasetSource);
   }
 
   if (!force && !sparseCommentRecovery && !rawPostsOverride && hasUsablePrecomputedDataset(store, normalizedGameKey)) {
     state.cache.dataset = store.precomputed_dataset;
     state.cache.datasetAt = Date.now();
     state.cache.datasetGameKey = normalizedGameKey;
-    return store.precomputed_dataset;
+    state.cache.datasetSource = createSourceDescriptor("persisted-precomputed-dataset", "Persisted dataset snapshot", "Loaded a previously computed dataset snapshot from persistent storage.");
+    if (Array.isArray(store.raw_posts) && store.raw_posts.length) {
+      state.cache.rawSource = createSourceDescriptor("persisted-raw", "Persisted raw posts", "Used raw posts that were already available in persistent storage.");
+    }
+    return attachOverviewSource(store.precomputed_dataset, state, state.cache.datasetSource);
   }
 
   const rawPosts = Array.isArray(rawPostsOverride)
@@ -1642,6 +1689,11 @@ async function buildDataset({
       ? `${topIssue.label} is the biggest live risk source in the last 72 hours.`
       : "No major live risk is visible yet.",
     lastSyncAt,
+    dataSource: {
+      store: state.storeSource || createSourceDescriptor("unknown-store", "Unknown store source", ""),
+      raw: state.cache.rawSource || createSourceDescriptor("unknown-raw", "Unknown raw source", ""),
+      dataset: createSourceDescriptor("rebuilt-dataset", "Freshly rebuilt dataset", "This response was rebuilt from the current raw posts and rules."),
+    },
   };
 
   const report = {
@@ -1731,7 +1783,8 @@ async function buildDataset({
   state.cache.dataset = dataset;
   state.cache.datasetAt = Date.now();
   state.cache.datasetGameKey = normalizedGameKey;
-  return dataset;
+  state.cache.datasetSource = overview.dataSource.dataset;
+  return attachOverviewSource(dataset, state, state.cache.datasetSource);
 }
 
 async function syncLiveDataset(gameKey = DEFAULT_GAME_KEY, mode = "light") {
@@ -1849,7 +1902,10 @@ function forceRefresh() {
   state.cache.datasetAt = 0;
   state.cache.rawGameKey = null;
   state.cache.datasetGameKey = null;
+  state.cache.rawSource = null;
+  state.cache.datasetSource = null;
   state.store = null;
+  state.storeSource = null;
 }
 
 async function getPostsResponse(query = {}) {

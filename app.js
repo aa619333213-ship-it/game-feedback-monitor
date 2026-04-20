@@ -20,6 +20,7 @@
     issueRelatedCache: {},
     showAllIssues: false,
     syncedPostsPayload: null,
+    datasetDisplaySource: null,
   };
 
   const LOCAL_DATASET_KEY_PREFIX = "gfm-latest-dashboard-dataset";
@@ -221,15 +222,23 @@
   async function renderAll() {
     let datasetToUse = null;
     const localDataset = readLocalDataset();
+    let displaySource = "remote";
 
     try {
       const remoteDataset = await App.fetchApi("/api/dashboard");
       const localTimestamp = getDatasetTimestamp(localDataset);
       const remoteTimestamp = getDatasetTimestamp(remoteDataset);
-      datasetToUse = localTimestamp > remoteTimestamp ? localDataset : remoteDataset;
+      if (localDataset && localTimestamp > remoteTimestamp) {
+        datasetToUse = localDataset;
+        displaySource = "local-cache-newer";
+      } else {
+        datasetToUse = remoteDataset;
+        displaySource = "remote";
+      }
       persistLocalDataset(datasetToUse);
     } catch (error) {
       datasetToUse = localDataset;
+      displaySource = "local-cache-offline";
       if (!datasetToUse) {
         throw error;
       }
@@ -240,6 +249,8 @@
       renderGameSwitcher();
       updateNavLinks();
     }
+
+    state.datasetDisplaySource = displaySource;
 
     renderOverview(datasetToUse.overview, datasetToUse.issues, datasetToUse.alerts);
     renderIssues(datasetToUse.issues);
@@ -329,13 +340,23 @@
 
   function buildSyncStatus(overview) {
     const lastSync = overview && overview.lastSyncAt ? App.formatDateTime(overview.lastSyncAt) : "暂无";
+    const sourceMeta = overview && overview.dataSource ? overview.dataSource : {};
     const viewLabel =
       state.contentType === "submission"
         ? "帖子"
         : state.contentType === "comment"
           ? "评论"
           : "全部内容";
-    return `最近同步：${lastSync} · 当前视图：${viewLabel}`;
+    const storeLabel = sourceMeta.store && sourceMeta.store.label ? sourceMeta.store.label : "未知存储";
+    const rawLabel = sourceMeta.raw && sourceMeta.raw.label ? sourceMeta.raw.label : "未知原始数据";
+    const datasetLabel = sourceMeta.dataset && sourceMeta.dataset.label ? sourceMeta.dataset.label : "未知数据集";
+    const displayLabel =
+      state.datasetDisplaySource === "local-cache-newer"
+        ? "浏览器本地缓存（时间更新）"
+        : state.datasetDisplaySource === "local-cache-offline"
+          ? "浏览器本地缓存（服务端不可用）"
+          : "服务端最新响应";
+    return `最近同步：${lastSync} · 当前显示：${displayLabel} · 服务端存储：${storeLabel} · 原始帖子：${rawLabel} · 数据集：${datasetLabel} · 当前视图：${viewLabel}`;
   }
 
   function setSyncStatus(message, tone = "idle") {
@@ -417,6 +438,7 @@
       renderGameSwitcher();
       updateNavLinks();
     }
+    state.datasetDisplaySource = "remote";
     persistLocalDataset(dataset);
     renderOverview(dataset.overview, dataset.issues, dataset.alerts);
     renderIssues(dataset.issues);
@@ -442,7 +464,14 @@
     try {
       if (!dataset || !dataset.overview || !Array.isArray(dataset.posts)) return;
       const gameKey = dataset.overview.gameKey || state.currentGame;
-      window.localStorage.setItem(getLocalDatasetKey(gameKey), JSON.stringify(dataset));
+      const payload = {
+        ...dataset,
+        __clientCacheMeta: {
+          savedAt: new Date().toISOString(),
+          baseDisplaySource: state.datasetDisplaySource || "remote",
+        },
+      };
+      window.localStorage.setItem(getLocalDatasetKey(gameKey), JSON.stringify(payload));
     } catch {}
   }
 

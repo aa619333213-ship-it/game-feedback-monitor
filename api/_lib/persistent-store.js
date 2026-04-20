@@ -10,6 +10,20 @@ const REMOTE_SEED_CONTENTS_URL =
 const REMOTE_SEED_URL =
   "https://raw.githubusercontent.com/aa619333213-ship-it/game-feedback-monitor/monitor-data/data/store.seed.json";
 
+function setPersistentStoreMeta(meta) {
+  globalThis.__GFM_PERSISTENT_STORE_META = meta;
+}
+
+function getLastPersistentStoreMeta() {
+  return (
+    globalThis.__GFM_PERSISTENT_STORE_META || {
+      code: "unknown",
+      label: "Unknown store source",
+      detail: "",
+    }
+  );
+}
+
 function isBlobUnavailableError(error) {
   const message = String(error?.message || error || "");
   return /blob/i.test(message) && /(suspended|401|403|404|forbidden|unauthorized|not found)/i.test(message);
@@ -101,7 +115,14 @@ async function readStoreFromBlob() {
 
   for (const blob of blobs) {
     const value = await fetchBlobJson(blob);
-    if (value) return value;
+    if (value) {
+      setPersistentStoreMeta({
+        code: "blob",
+        label: "Vercel Blob persistent store",
+        detail: "Read from deployed Blob storage.",
+      });
+      return value;
+    }
   }
 
   return null;
@@ -183,6 +204,11 @@ async function seedBlobStoreIfNeeded() {
     const seed = await readJsonFile(SEED_STORE_PATH);
     const wrote = await writeStoreToBlob(seed);
     if (!wrote) return null;
+    setPersistentStoreMeta({
+      code: "blob-seeded-from-local",
+      label: "Vercel Blob seeded from local snapshot",
+      detail: "Blob storage was empty, so local seed data was uploaded first.",
+    });
     return seed;
   } catch {
     return null;
@@ -198,6 +224,11 @@ async function readPersistentStore() {
   if (isVercelRuntime()) {
     const cache = getRemoteSeedCache();
     if (cache.value && Date.now() - cache.at < 5 * 60 * 1000) {
+      setPersistentStoreMeta({
+        code: "remote-seed-cache",
+        label: "Remote seed cache",
+        detail: "Used cached remote seed data in the Vercel runtime.",
+      });
       return cache.value;
     }
 
@@ -205,6 +236,11 @@ async function readPersistentStore() {
       const remoteSeed = await fetchRemoteSeedFromContentsApi();
       cache.value = remoteSeed;
       cache.at = Date.now();
+      setPersistentStoreMeta({
+        code: "remote-seed-contents",
+        label: "GitHub seed snapshot",
+        detail: "Loaded seed data through the GitHub contents API.",
+      });
       return remoteSeed;
     } catch {}
 
@@ -212,18 +248,40 @@ async function readPersistentStore() {
       const remoteSeed = await fetchRemoteSeedFromRaw();
       cache.value = remoteSeed;
       cache.at = Date.now();
+      setPersistentStoreMeta({
+        code: "remote-seed-raw",
+        label: "GitHub raw seed snapshot",
+        detail: "Loaded seed data from the raw GitHub file URL.",
+      });
       return remoteSeed;
     } catch {}
   }
 
   try {
-    return await readJsonFile(LOCAL_STORE_PATH);
+    const localStore = await readJsonFile(LOCAL_STORE_PATH);
+    setPersistentStoreMeta({
+      code: "local-file",
+      label: "Local store.json",
+      detail: "Loaded persisted data from the local workspace file.",
+    });
+    return localStore;
   } catch {}
 
   try {
-    return await readJsonFile(SEED_STORE_PATH);
+    const seedStore = await readJsonFile(SEED_STORE_PATH);
+    setPersistentStoreMeta({
+      code: "local-seed",
+      label: "Local seed snapshot",
+      detail: "Loaded fallback seed data from the local workspace.",
+    });
+    return seedStore;
   } catch {}
 
+  setPersistentStoreMeta({
+    code: "none",
+    label: "No persisted store",
+    detail: "No readable persistent store was available.",
+  });
   return null;
 }
 
@@ -231,15 +289,30 @@ async function writePersistentStore(value) {
   if (hasBlobStorage()) {
     const wrote = await writeStoreToBlob(value);
     if (wrote) {
+      setPersistentStoreMeta({
+        code: "blob",
+        label: "Vercel Blob persistent store",
+        detail: "Latest write completed in Blob storage.",
+      });
       return { provider: "blob" };
     }
   }
 
   if (!isVercelRuntime()) {
     await writeJsonFile(LOCAL_STORE_PATH, value);
+    setPersistentStoreMeta({
+      code: "local-file",
+      label: "Local store.json",
+      detail: "Latest write completed in the local workspace file.",
+    });
     return { provider: "file" };
   }
 
+  setPersistentStoreMeta({
+    code: "memory",
+    label: "Runtime memory only",
+    detail: "Running without durable persistence in this environment.",
+  });
   return { provider: "memory" };
 }
 
@@ -247,6 +320,7 @@ module.exports = {
   LOCAL_STORE_PATH,
   SEED_STORE_PATH,
   STORE_BLOB_PATH,
+  getLastPersistentStoreMeta,
   hasBlobStorage,
   readPersistentStore,
   writePersistentStore,

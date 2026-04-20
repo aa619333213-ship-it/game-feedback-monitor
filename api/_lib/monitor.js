@@ -1063,15 +1063,6 @@ async function getRedditFeedback({
     return persistedRaw;
   }
 
-  if (!force && isVolatileVercelRuntime() && !persistedRaw.length) {
-    const fallback = getFallbackRawPosts();
-    state.cache.raw = fallback;
-    state.cache.rawAt = Date.now();
-    state.cache.rawGameKey = normalizedGameKey;
-    state.cache.rawSource = createSourceDescriptor("fallback-sample", "Built-in fallback sample", "Used bundled sample posts because no persisted raw data was available.");
-    return fallback;
-  }
-
   if (!force && canReusePersistedRaw && lastSyncMs && Date.now() - lastSyncMs < ttlMs) {
     state.cache.raw = persistedRaw;
     state.cache.rawAt = Date.now();

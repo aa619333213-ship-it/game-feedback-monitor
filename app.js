@@ -70,7 +70,7 @@
   };
 
   async function init() {
-    state.games = App.getGameCatalog ? App.getGameCatalog() : [];
+    state.games = App.fetchGameCatalog ? await App.fetchGameCatalog() : App.getGameCatalog();
     renderGameSwitcher();
     updateNavLinks();
     if (els.contentTypeFilter) {
@@ -696,20 +696,7 @@
   }
 
   function topicLabel(key) {
-    const labels = {
-      matchmaking: "匹配",
-      economy: "经济",
-      monetization: "付费",
-      event: "活动",
-      progression: "进度",
-      balance: "平衡",
-      server: "服务器",
-      bug: "漏洞",
-      "anti-cheat": "反作弊",
-      social: "社交",
-      onboarding: "新手引导",
-    };
-    return labels[key] || key || "其他";
+    return App.topicLabel(key);
   }
 
   function translateCopy(text) {

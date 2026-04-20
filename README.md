@@ -13,11 +13,19 @@ An internal operations dashboard for monitoring overseas player feedback from Re
 
 ## Start the app
 
+From the project root:
+
+```text
+C:\Users\Administrator\Documents\game-feedback-monitor
+```
+
 Run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Start-Server.ps1
 ```
+
+The local PowerShell server listens on port `8899` by default.
 
 Then open:
 

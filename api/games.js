@@ -1,4 +1,4 @@
-const { buildDataset } = require("./_lib/monitor");
+const { readGames } = require("./_lib/monitor");
 const { methodNotAllowed, sendJson } = require("./_lib/response");
 
 module.exports = async function handler(req, res) {
@@ -6,11 +6,8 @@ module.exports = async function handler(req, res) {
   if (req.method !== "GET") return methodNotAllowed(res);
 
   try {
-    const dataset = await buildDataset({ persist: false, gameKey: req.query?.game });
-    return sendJson(res, 200, {
-      items: dataset.reviewQueue,
-      reviewActions: dataset.reviewActions || [],
-    });
+    const games = await readGames();
+    return sendJson(res, 200, games);
   } catch (error) {
     console.error(error);
     return sendJson(res, 500, { error: error.message });

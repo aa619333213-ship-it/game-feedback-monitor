@@ -19,7 +19,7 @@
   };
 
   async function init() {
-    renderGameSwitcher(App.getGameCatalog ? App.getGameCatalog() : []);
+    renderGameSwitcher(App.fetchGameCatalog ? await App.fetchGameCatalog() : App.getGameCatalog());
     updateNavLinks();
     await renderPage();
     bindRuleForm();
@@ -46,11 +46,17 @@
   }
 
   async function renderPage() {
-    const [queue, rules] = await Promise.all([App.fetchApi("/api/review-queue"), App.fetchApi("/api/rules")]);
-    const dataset = App.getDataset();
+    const [queuePayload, rules] = await Promise.all([
+      App.fetchApi("/api/review-queue"),
+      App.fetchApi("/api/rules"),
+    ]);
+    const queue = Array.isArray(queuePayload && queuePayload.items) ? queuePayload.items : [];
+    const taxonomy = Array.isArray(rules.taxonomy) ? rules.taxonomy : [];
+    const reviewHistory = Array.isArray(queuePayload && queuePayload.reviewActions) ? queuePayload.reviewActions : [];
 
     renderRuleForm(rules);
-    renderTaxonomyForm(rules.taxonomy || dataset.taxonomy || []);
+    App.setTaxonomyCache(taxonomy);
+    renderTaxonomyForm(taxonomy);
 
     els.reviewStats.textContent = `${queue.length} 条内容待复核`;
     els.reviewList.innerHTML = queue
@@ -72,7 +78,7 @@
         <form class="review-form" data-post-id="${post.id}">
           <label>主题
             <select name="topic">
-              ${dataset.taxonomy
+              ${taxonomy
                 .map(
                   (item) =>
                     `<option value="${item.key}" ${item.key === post.topic ? "selected" : ""}>${item.label}</option>`
@@ -97,8 +103,8 @@
       )
       .join("");
 
-    els.reviewHistory.innerHTML = dataset.reviewActions.length
-      ? dataset.reviewActions
+    els.reviewHistory.innerHTML = reviewHistory.length
+      ? reviewHistory
           .map(
             (action) => `
       <div class="history-item">

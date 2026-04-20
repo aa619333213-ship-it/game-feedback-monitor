@@ -1897,6 +1897,7 @@ module.exports = {
   getPostsResponse,
   getRules,
   loadRules,
+  readGames,
   readSources,
   saveReviewLabel,
   setRules,

@@ -155,7 +155,7 @@
 
   async function fetchGameCatalog() {
     try {
-      const payload = await fetchApi("/api/games", {}, "GET", { skipGameParam: true });
+      const payload = await realFetch("/data/games.json", {}, "GET", { skipGameParam: true });
       if (Array.isArray(payload) && payload.length) {
         gameCatalogCache = clone(payload);
       }

@@ -183,7 +183,7 @@ function getDefaultGames() {
       key: "rise-of-kingdoms",
       slug: "rok",
       name: "Rise of Kingdoms",
-      displayName: "万国觉醒",
+      displayName: "\u4e07\u56fd\u89c9\u9192",
       sourcesLabel: "r/RiseofKingdoms",
       subreddits: ["RiseofKingdoms"],
       placeholder: false,
@@ -192,7 +192,7 @@ function getDefaultGames() {
       key: "new-game",
       slug: "new-game",
       name: "Lords Mobile",
-      displayName: "王国纪元",
+      displayName: "\u738b\u56fd\u7eaa\u5143",
       sourcesLabel: "r/lordsmobile",
       subreddits: ["lordsmobile"],
       placeholder: false,
@@ -1223,6 +1223,15 @@ async function getRedditFeedback({
       state.cache.rawGameKey = normalizedGameKey;
       state.cache.rawSource = createSourceDescriptor("persisted-raw-on-error", "Persisted raw posts", "Live fetch failed, so the server fell back to persisted raw posts.");
       return persistedRaw;
+    }
+
+    if (!usesSharedPersistentStore(normalizedGameKey)) {
+      state.cache.rawSource = createSourceDescriptor(
+        "live-fetch-error",
+        "Live Reddit fetch failed",
+        "No persisted raw posts were available for this game, so the server returned an empty game-scoped result instead of cross-game sample data."
+      );
+      return [];
     }
 
     const fallback = getFallbackRawPosts();

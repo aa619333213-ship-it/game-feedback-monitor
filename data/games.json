@@ -3,7 +3,7 @@
     "key": "rise-of-kingdoms",
     "slug": "rok",
     "name": "Rise of Kingdoms",
-    "displayName": "涓囧浗瑙夐啋",
+    "displayName": "\u4e07\u56fd\u89c9\u9192",
     "sourcesLabel": "r/RiseofKingdoms",
     "subreddits": ["RiseofKingdoms"],
     "placeholder": false
@@ -12,7 +12,7 @@
     "key": "new-game",
     "slug": "new-game",
     "name": "Lords Mobile",
-    "displayName": "王国纪元",
+    "displayName": "\u738b\u56fd\u7eaa\u5143",
     "sourcesLabel": "r/lordsmobile",
     "subreddits": ["lordsmobile"],
     "placeholder": false

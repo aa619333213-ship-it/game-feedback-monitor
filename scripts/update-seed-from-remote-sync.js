@@ -3,6 +3,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
 const SEED_PATH = path.join(ROOT, "data", "store.seed.json");
+const GAMES_PATH = path.join(ROOT, "data", "games.json");
 const SYNC_URL = process.env.GFM_SYNC_URL || "https://shilongradar.fun/api/admin/sync";
 const DASHBOARD_URL = process.env.GFM_DASHBOARD_URL || "https://shilongradar.fun/api/dashboard";
 const MIN_SYNC_MINUTES = Math.max(0, Number(process.env.GFM_MIN_SYNC_MINUTES || 60));
@@ -34,6 +35,7 @@ function toStore(dataset) {
     precomputed_dataset: dataset,
     meta: {
       lastSyncAt: dataset.overview?.lastSyncAt || new Date().toISOString(),
+      gameKey: dataset.overview?.gameKey || "rise-of-kingdoms",
       game: dataset.overview?.game || "Rise of Kingdoms",
     },
     risk_daily_snapshot: [],
@@ -43,8 +45,32 @@ function toStore(dataset) {
   };
 }
 
-async function fetchDataset() {
-  const response = await fetch(`${SYNC_URL}?ts=${Date.now()}&mode=${encodeURIComponent(SYNC_MODE)}`, {
+async function readGames() {
+  try {
+    const parsed = JSON.parse(await fs.readFile(GAMES_PATH, "utf8"));
+    if (Array.isArray(parsed) && parsed.length) {
+      return parsed.filter((game) => game && game.key && !game.placeholder);
+    }
+  } catch {}
+
+  return [{ key: "rise-of-kingdoms", name: "Rise of Kingdoms" }];
+}
+
+async function readExistingSeed() {
+  try {
+    return JSON.parse(await fs.readFile(SEED_PATH, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function fetchDataset(gameKey) {
+  const url = new URL(SYNC_URL);
+  url.searchParams.set("ts", String(Date.now()));
+  url.searchParams.set("mode", SYNC_MODE);
+  url.searchParams.set("game", gameKey);
+
+  const response = await fetch(url.toString(), {
     method: "POST",
     headers: {
       "Cache-Control": "no-cache, no-store, max-age=0",
@@ -67,7 +93,11 @@ async function fetchDataset() {
 }
 
 async function fetchLatestOverview() {
-  const response = await fetch(`${DASHBOARD_URL}?ts=${Date.now()}`, {
+  const url = new URL(DASHBOARD_URL);
+  url.searchParams.set("ts", String(Date.now()));
+  url.searchParams.set("game", "rise-of-kingdoms");
+
+  const response = await fetch(url.toString(), {
     method: "GET",
     headers: {
       "Cache-Control": "no-cache, no-store, max-age=0",
@@ -120,15 +150,40 @@ async function main() {
     return;
   }
 
-  const dataset = await fetchDataset();
-  const store = toStore(dataset);
+  const games = await readGames();
+  const existingSeed = await readExistingSeed();
+  const gameStores = {
+    ...(existingSeed.games && typeof existingSeed.games === "object" ? existingSeed.games : {}),
+  };
+  const syncedGames = [];
+
+  for (const game of games) {
+    const dataset = await fetchDataset(game.key);
+    gameStores[game.key] = toStore(dataset);
+    syncedGames.push({
+      gameKey: game.key,
+      syncedAt: dataset.overview?.lastSyncAt || null,
+      ingested: Array.isArray(dataset.posts) ? dataset.posts.length : 0,
+    });
+  }
+
+  const defaultStore = gameStores["rise-of-kingdoms"] || gameStores[games[0]?.key] || {};
+  const store = {
+    ...existingSeed,
+    ...defaultStore,
+    games: gameStores,
+    rule_config: defaultStore.rule_config || existingSeed.rule_config || null,
+    review_labels: defaultStore.review_labels || existingSeed.review_labels || [],
+  };
+
   await fs.writeFile(SEED_PATH, `${JSON.stringify(store, null, 2)}\n`, "utf8");
   console.log(
     JSON.stringify(
       {
         ok: true,
-        syncedAt: dataset.overview?.lastSyncAt || null,
-        ingested: Array.isArray(dataset.posts) ? dataset.posts.length : 0,
+        syncedGames,
+        syncedAt: syncedGames[0]?.syncedAt || null,
+        ingested: syncedGames.reduce((sum, item) => sum + item.ingested, 0),
         seedPath: SEED_PATH,
         source: SYNC_URL,
         minSyncMinutes: MIN_SYNC_MINUTES,

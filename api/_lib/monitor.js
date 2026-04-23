@@ -1440,7 +1440,18 @@ function usesSharedPersistentStore(gameKey = DEFAULT_GAME_KEY) {
 }
 
 function getScopedStore(baseStore, gameKey = DEFAULT_GAME_KEY) {
-  if (usesSharedPersistentStore(gameKey)) {
+  const normalizedGameKey = normalizeGameKey(gameKey);
+  const gameBucket = baseStore?.games?.[normalizedGameKey];
+
+  if (gameBucket && typeof gameBucket === "object") {
+    return normalizeStoreShape({
+      ...gameBucket,
+      rule_config: gameBucket.rule_config || baseStore?.rule_config,
+      review_labels: Array.isArray(gameBucket.review_labels) ? gameBucket.review_labels : baseStore?.review_labels,
+    });
+  }
+
+  if (usesSharedPersistentStore(normalizedGameKey)) {
     return normalizeStoreShape(baseStore);
   }
 

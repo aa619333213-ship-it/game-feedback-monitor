@@ -143,7 +143,25 @@ async function fetchRemoteSeedFromContentsApi() {
   }
 
   const payload = await response.json();
-  const content = String(payload?.content || "").replace(/\s+/g, "");
+  let content = String(payload?.content || "").replace(/\s+/g, "");
+  if (!content && payload?.git_url) {
+    const blobResponse = await fetch(`${payload.git_url}?ts=${Date.now()}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        "User-Agent": "GameFeedbackMonitor/1.0",
+        Accept: "application/vnd.github+json",
+      },
+    });
+
+    if (!blobResponse.ok) {
+      throw new Error(`Failed to fetch remote seed blob: ${blobResponse.status}`);
+    }
+
+    const blobPayload = await blobResponse.json();
+    content = String(blobPayload?.content || "").replace(/\s+/g, "");
+  }
+
   if (!content) {
     throw new Error("Remote seed contents payload did not include file content");
   }

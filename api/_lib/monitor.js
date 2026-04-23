@@ -82,6 +82,22 @@ function attachOverviewSource(dataset, state, datasetSourceOverride = null) {
   return dataset;
 }
 
+function attachGameIdentity(dataset, sources, gameKey = DEFAULT_GAME_KEY) {
+  if (!dataset || !dataset.overview) return dataset;
+
+  dataset.overview.game = sources.game?.name || dataset.overview.game || "Game";
+  dataset.overview.displayName = sources.game?.displayName || sources.game?.name || dataset.overview.displayName || "Game";
+  dataset.overview.gameKey = sources.game?.key || normalizeGameKey(gameKey);
+  dataset.overview.sources = (sources.subreddits || []).map((item) => `r/${item}`);
+
+  if (dataset.report) {
+    dataset.report.title = `${sources.game?.name || dataset.overview.game || "Game"} Daily Risk Brief`;
+    dataset.report.subtitle = `Sources: ${(sources.subreddits || []).map((item) => `r/${item}`).join(" / ")}`;
+  }
+
+  return dataset;
+}
+
 function createEmptyStore() {
   return {
     raw_posts: [],
@@ -1487,6 +1503,7 @@ async function buildDataset({
     state.cache.datasetGameKey === normalizedGameKey &&
     Date.now() - state.cache.datasetAt < ttlMs
   ) {
+    attachGameIdentity(state.cache.dataset, sources, normalizedGameKey);
     state.cache.datasetSource = createSourceDescriptor("server-memory-dataset-cache", "Server dataset cache", "Reused a recently built dataset from in-memory server cache.");
     if (!state.cache.rawSource && Array.isArray(state.cache.raw) && state.cache.raw.length) {
       state.cache.rawSource = createSourceDescriptor("server-memory-raw-cache", "Server raw cache", "Reused recent raw posts from in-memory server cache.");
@@ -1495,14 +1512,14 @@ async function buildDataset({
   }
 
   if (!force && !sparseCommentRecovery && !rawPostsOverride && hasUsablePrecomputedDataset(store, normalizedGameKey)) {
-    state.cache.dataset = store.precomputed_dataset;
+    state.cache.dataset = attachGameIdentity(store.precomputed_dataset, sources, normalizedGameKey);
     state.cache.datasetAt = Date.now();
     state.cache.datasetGameKey = normalizedGameKey;
     state.cache.datasetSource = createSourceDescriptor("persisted-precomputed-dataset", "Persisted dataset snapshot", "Loaded a previously computed dataset snapshot from persistent storage.");
     if (Array.isArray(store.raw_posts) && store.raw_posts.length) {
       state.cache.rawSource = createSourceDescriptor("persisted-raw", "Persisted raw posts", "Used raw posts that were already available in persistent storage.");
     }
-    return attachOverviewSource(store.precomputed_dataset, state, state.cache.datasetSource);
+    return attachOverviewSource(state.cache.dataset, state, state.cache.datasetSource);
   }
 
   const rawPosts = Array.isArray(rawPostsOverride)

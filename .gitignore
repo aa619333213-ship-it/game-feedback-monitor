@@ -1,4 +1,5 @@
 .vercel/
+.env*.local
 data/store.json
 data/store.ascii.json
 data/*.bak

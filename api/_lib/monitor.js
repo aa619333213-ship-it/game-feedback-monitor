@@ -1461,6 +1461,33 @@ function getScopedStore(baseStore, gameKey = DEFAULT_GAME_KEY) {
   });
 }
 
+function putScopedStore(baseStore, gameKey = DEFAULT_GAME_KEY, scopedStore = null) {
+  const normalizedGameKey = normalizeGameKey(gameKey);
+  const normalizedBase = normalizeStoreShape(baseStore);
+  const normalizedScoped = normalizeStoreShape(scopedStore);
+  const games = {
+    ...(normalizedBase.games && typeof normalizedBase.games === "object" ? normalizedBase.games : {}),
+    [normalizedGameKey]: normalizedScoped,
+  };
+
+  if (usesSharedPersistentStore(normalizedGameKey)) {
+    return normalizeStoreShape({
+      ...normalizedBase,
+      ...normalizedScoped,
+      games,
+      rule_config: normalizedScoped.rule_config || normalizedBase.rule_config,
+      review_labels: normalizedScoped.review_labels || normalizedBase.review_labels,
+    });
+  }
+
+  return normalizeStoreShape({
+    ...normalizedBase,
+    games,
+    rule_config: normalizedBase.rule_config || normalizedScoped.rule_config,
+    review_labels: normalizedBase.review_labels || normalizedScoped.review_labels,
+  });
+}
+
 function hasUsablePrecomputedDataset(store, requestedGameKey = DEFAULT_GAME_KEY) {
   const dataset = store?.precomputed_dataset;
   if (!dataset || typeof dataset !== "object") return false;
@@ -1757,9 +1784,9 @@ async function buildDataset({
     reviewActions: reviewLabels,
   };
 
-  if (persist && usesSharedPersistentStore(normalizedGameKey)) {
-    const persistedStore = normalizeStoreShape({
-      ...hydratedStore,
+  if (persist) {
+    const scopedPersistedStore = normalizeStoreShape({
+      ...store,
       raw_posts: rawPosts,
       analyzed_feedback: analysisItems,
       precomputed_dataset: dataset,
@@ -1784,16 +1811,15 @@ async function buildDataset({
       alerts,
       rule_config: rules,
     });
-    await saveStore(persistedStore);
+    await saveStore(putScopedStore(hydratedStore, normalizedGameKey, scopedPersistedStore));
   } else if (
-    usesSharedPersistentStore(normalizedGameKey) &&
     !rawPostsOverride &&
     !storeOverride &&
     !hasUsablePrecomputedDataset(store, normalizedGameKey)
   ) {
     try {
       const healedStore = normalizeStoreShape({
-        ...hydratedStore,
+        ...store,
         analyzed_feedback: analysisItems,
         precomputed_dataset: dataset,
         meta: {
@@ -1803,7 +1829,7 @@ async function buildDataset({
           game: sources.game?.name || store.meta?.game || "Rise of Kingdoms",
         },
       });
-      await saveStore(healedStore);
+      await saveStore(putScopedStore(hydratedStore, normalizedGameKey, healedStore));
     } catch (error) {
       console.error("Failed to heal persisted dataset snapshot", error);
     }
@@ -1857,7 +1883,7 @@ async function syncLiveDataset(gameKey = DEFAULT_GAME_KEY, mode = "light") {
     force: false,
     rawPostsOverride: mergedRawPosts,
     storeOverride: hydratedStore,
-    persist: usesSharedPersistentStore(normalizedGameKey),
+    persist: true,
     lastSyncAtOverride: syncedAt,
     gameKey,
   });
